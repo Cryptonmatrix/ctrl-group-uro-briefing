@@ -101,19 +101,50 @@ Performance-Historie: 58 Monatspunkte pro Portfolio, Ende `2026-07-01`. Klienten
 - `ContributionVolatility` (nicht `MarginalContributionToRisk`) summiert sich zu `Portfolio.Volatility`.
 - Daten sind um einen konstanten Offset nach vorn geschoben. Relative Abstände stimmen, absolute Daten nicht.
 
-### Der Goldschatz: `ClientNotes`
+### Der stärkste Befund: Risiken, die die Regel-Engine der Bank nicht sieht
 
-Jeder der 47 Klienten hat Notizen, im Klartext, z. B.:
+**14 Portfolios reissen das Volatilitätslimit ihres Risikoprofils. Bei 11 davon meldet die
+Suitability-Engine NULL Verstösse.**
 
-> „No direct positions in fossil fuels, please."
-> „Plans to retire in the next two years, increasing liquidity needs expected."
-> „Prefers ESG-compliant investments, no defense or tobacco holdings."
+| Klient | Volatilität | Limit | Überschreitung | Gemeldete Verstösse |
+|---|---|---|---|---|
+| CASE-011 Ellen Ripley | 60.6% | 15.0% | **+304%** | 0 |
+| CASE-021 Holden Caulfield | 21.6% | 7.5% | +188% | 0 |
+| CASE-014 Katniss Everdeen | 22.0% | 10.0% | +120% | 0 |
+| CASE-015 Porky Pig | 29.3% | 15.0% | +95% | 0 |
+| CASE-028 Charles Foster Kane | 22.0% | 12.0% | +83% | 0 |
+| CASE-003 Ron Burgundy | 20.0% | 12.0% | +67% | 0 |
 
-**Pipeline dafür:** LLM extrahiert strukturierte Intentionen (`exclusion`, `liquidity_need`,
-`preference`, `concern`) → Engine prüft *deterministisch* gegen die Positionen → eigene Finding-Klasse
-`preference_conflict`. Beispiel-Output: „Kundin schliesst fossile Energien aus, hält aber 4,1% Energiesektor."
+**Die Ursache:** Diese Portfolios haben `StrategyName: "No strategy"`. Ohne hinterlegte Strategie
+greifen die SAA-Regeln nicht, und die Verstoss-Prüfung läuft ins Leere. Das Risiko ist real und
+messbar — nur meldet es niemand.
 
-Das ist die Verknüpfung, die die Jury „coherent storyline" nennt — und die kaum ein anderes Team bauen wird.
+**Das ist unser stärkstes Feature**, stärker als alles andere im Datensatz. Wir rechnen die
+Volatilität gegen `RiskProfiles[].MaxVola` selbst, unabhängig davon, ob eine Strategie hinterlegt ist.
+Ein Berater, der auf die Verstoss-Liste schaut, sieht bei Ellen Ripley ein sauberes Depot.
+
+Implementierung: `analytics/suitability.py` → `risk_profile_findings()`. Severity `ERROR`.
+
+### ClientNotes — wertvoll, aber anders als die Strategie annahm
+
+**Geprüft und korrigiert:** Die ursprüngliche Annahme war „Kundin schliesst fossile Energien aus, hält
+aber 4% Energiesektor". **Das gibt der Datensatz nicht her.** Nachgerechnet inklusive
+Fonds-Durchsicht: Mary Poppins (CASE-007) hält 0.56% fossile Energie, Joker (CASE-002) 0.11%,
+Ron Burgundy 0.00% Rüstung/Tabak. Als Konflikt ist das nicht überzeugend — wer das trotzdem als
+Verstoss meldet, wirkt alarmistisch.
+
+**Stark sind die Notizen dagegen bei Liquiditätsbedarf und Lebensereignissen:**
+
+> CASE-012 Company 001 AG: „Needs approximately CHF 15,000 in liquid funds for the Q1 tax payment."
+> Tatsächlich liquide: **CHF 328** bei CHF 44'396 Vermögen. **Nicht gedeckt.**
+
+Derselbe Satz steht bei CASE-016 Holly Golightly — dort sind CHF 150'625 liquide, also unproblematisch.
+Dieselbe Notiz, gegensätzliche Bewertung, weil die Engine rechnet. **Genau das ist die
+klientenspezifische Storyline, die der Case verlangt.**
+
+Konsequenz für die Extraktion (`llm/extract_notes.py`): Priorität auf `liquidity_need` und
+`life_event`, nicht auf `exclusion`. Ausschlüsse trotzdem extrahieren, aber erst ab einer
+relevanten Schwelle (Vorschlag: 2% des Vermögens) als Finding melden.
 
 ### Häufigste Verstösse (Material für Abschnitt 2)
 

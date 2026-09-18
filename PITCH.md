@@ -186,12 +186,24 @@ Aus dem Datensatz, als Beleg dafür, dass wir die Daten wirklich gelesen haben:
 sondern mit einem **eingehenden Anruf**: Popup „\<Klient\> ruft an", das Briefing startet automatisch,
 nach wenigen Sekunden steht es. Das ist der *Ping*. Das Briefing ist der *Pitch*.
 
-Reihenfolge nach der Stärke, die jeder Fall zeigt:
+Reihenfolge nach der Stärke, die jeder Fall zeigt — **aus den Daten verifiziert**:
 
-1. **Klient mit Liquiditätsbedarf und Präferenz** — das Beispielszenario aus dem Case, eins zu eins.
-2. **Klient mit Klumpenrisiko ohne formalen Verstoss** — wir sehen, was keine Regel meldet.
-3. **Klient, der Vorschläge grundsätzlich ablehnt** — wir respektieren Präferenzen statt Standardempfehlung.
-4. **Live-Upload des unbekannten Testklienten.**
+**1. CASE-003 Ron Burgundy** — der Eröffnungsfall, weil er drei Dinge gleichzeitig zeigt.
+73.4% in Lindt & Sprüngli plus 23.6% Sensirion, also 97% in zwei Schweizer Aktien.
+Portfoliovolatilität 20.0% gegen ein Profillimit von 12.0%. **Gemeldete Verstösse: null.**
+Dazu die Notiz „Plans to retire in the next two years" bei 3.0% Liquidität.
+Klumpenrisiko, Limitverletzung und Lebensereignis in einem einzigen Briefing.
+
+**2. CASE-011 Ellen Ripley** — der Hammer, falls wir Zeit für einen zweiten Fall haben.
+Volatilität 60.6% gegen ein Limit von 15.0%. Das Vierfache. Gemeldete Verstösse: null.
+
+**3. CASE-012 Company 001 AG** — zeigt, dass wir Notizen gegen Zahlen prüfen.
+Notiz: „Needs approximately CHF 15,000 in liquid funds for the Q1 tax payment."
+Tatsächlich liquide: CHF 328. Dazu 21 Verstösse, davon 13 Errors — der Health Check hat Material.
+**Kontrast dazu CASE-016 Holly Golightly:** dieselbe Notiz, CHF 150'625 liquide, kein Problem.
+Dieselbe Notiz, gegensätzliche Bewertung. Das ist die klientenspezifische Storyline.
+
+**4. Live-Upload des unbekannten Testklienten.**
 
 Im Ausblick: In Produktion getriggert per Anruferkennung oder Kalendereintrag — Briefings für
 geplante Termine liegen morgens schon bereit.
@@ -209,3 +221,84 @@ Leuten, die das Produkt bauen — sie erkennen eine überverkaufte Demo sofort.
   Wir kennzeichnen es im UI und sagen es selbst.
 - **Keine Anlageberatung.** Das Briefing ist ein internes Vorbereitungsdokument für den Berater,
   kein Dokument für den Endkunden. Das steht so im Case und ist regulatorisch nicht egal.
+
+---
+
+## 9. Der Befund, der den Pitch tragen sollte
+
+**14 Portfolios im Datensatz reissen das Volatilitätslimit ihres Risikoprofils.
+Bei 11 davon meldet die Suitability-Engine der Bank null Verstösse.**
+
+Die Ursache ist systematisch: Diesen Portfolios ist keine Strategie zugewiesen
+(`StrategyName: "No strategy"`). Ohne Strategie greifen die SAA-Regeln nicht, also feuert die
+Verstoss-Prüfung nie. Das Risiko ist real und exakt messbar — es meldet nur niemand.
+
+Extremfall: **Ellen Ripley, 60.6% Volatilität gegen ein Limit von 15.0%.** Das Vierfache.
+Null gemeldete Verstösse.
+
+**Warum das der stärkste Punkt ist:** Es ist kein besseres Briefing über bekannte Probleme.
+Es ist ein Problem, das das bestehende System strukturell nicht sieht — gefunden in den Daten,
+die der Case-Owner selbst geliefert hat. Das lässt sich in einem Satz sagen und in einer Zeile beweisen.
+
+**Formulierungsvorschlag:**
+> „Wir haben Ihren Datensatz durchgerechnet. Elf Ihrer 47 Klienten halten ein Portfolio, das
+> ihr eigenes Risikoprofil verletzt — und für keinen davon meldet die Regel-Engine etwas,
+> weil keine Strategie hinterlegt ist. Unser System rechnet das unabhängig davon."
+
+**Vorsicht im Ton.** Das ist ein Befund, kein Vorwurf. Sachlich vortragen, nicht triumphierend —
+es ist ihr Produkt, und sie haben uns die Daten gegeben. Formulierung als „strukturelle Lücke,
+die eine zweite Prüfebene rechtfertigt", nicht als „Ihr System ist kaputt".
+
+---
+
+## 10. Was der Datensatz NICHT hergibt
+
+Geprüft und verworfen, damit niemand Zeit darauf verschwendet oder es auf der Bühne behauptet:
+
+- **ESG-Ausschlusskonflikte sind schwach.** Die Notiz „no fossil fuels" klingt nach einem starken
+  Feature, aber nachgerechnet inklusive Fonds-Durchsicht: Mary Poppins hält 0.56% fossile Energie,
+  Joker 0.11%, Ron Burgundy 0.00% Rüstung/Tabak. Das als Verstoss zu melden, wirkt alarmistisch.
+  Ausschlüsse erst ab ~2% des Vermögens als Finding melden.
+- **Keine Positions-Historie.** Performance-Attribution bleibt eine deklarierte Näherung.
+- **`PerformanceYTD` existiert nirgends.** Auf allen 57 Portfolios abwesend, wird selbst gerechnet.
+
+---
+
+## 11. UI-Vorgaben aus den Original-Screenshots
+
+Aus `assets/GUI-screenshots/`. Je näher das Mockup daran liegt, desto natürlicher wirkt das Feature
+als Teil des Produkts — Kriterium 4 fragt wörtlich, ob das Design „fits naturally into the
+URO Advisor Pro environment".
+
+**Layout:** Drei Kopfzeilen. Oben ein durchgehend blaues Band mit dem UNRISKOMEGA-Schriftzug links,
+Suche und Benutzermenü rechts. Darunter weiss: Klientenname mit ID links, **Aktionsleiste rechts**.
+Darunter ein hellgrauer Streifen mit Metadaten links und dem Gesamtvermögen gross und rechtsbündig.
+
+**Der Button gehört in diese Aktionsleiste.** Dort stehen bereits „Telefonberatung", „Beratermappe",
+„Notizen", „Analyse", „Kundeninformation", „Portfolio" — alle als Icon plus Label, klein, grau.
+„Generate Briefing" setzt sich links daneben, hervorgehoben. Das ist exakt die Stelle, an der ein
+Berater es im echten Produkt erwarten würde.
+
+**Farbsprache — die benutzen wir, statt eine eigene zu erfinden:**
+
+| Element | Bedeutung im Original |
+|---|---|
+| Rote Kachel (voll ausgefüllt) | Problem, das Aufmerksamkeit braucht — im Screenshot die SAA-Kachel |
+| Rotes Kreissymbol | Regelverstoss (Error) |
+| Gelbes Warndreieck | Warnung |
+| Blau | Normalzustand, Standard-Datenvisualisierung |
+| Grün/Türkis | positiver Wert, Zielerreichung |
+
+Unsere Statement-Farben sollten sich daran anlehnen: Risiko rot, Fakt neutral/grau,
+Markt blau, Empfehlung grün. House View braucht eine eigene Farbe, die im Original nicht vorkommt —
+Violett ist frei.
+
+**Visuelle Sprache:** Weisse Karten auf hellgrauem Hintergrund, dünne Ränder, kaum Rundungen.
+Rechts ein Raster kleiner quadratischer Kacheln mit Donut-Charts: Label klein und grau oben links,
+Wert gross in der Mitte. Dichte Tabellen, kleine Schrift, serifenlos. Insgesamt sachlich und
+informationsdicht — kein Consumer-Look, keine grossen Schatten, keine verspielten Animationen.
+
+**Ein Detail, das Verständnis zeigt:** Das Berater-Dashboard hat vorgefertigte Filter-Tabs —
+„01 - Liquidity > 10%", „03 - Last Consultation > 12 Months", „04 - Rule Violations (urgent)",
+„05 - Birthdays". Der Berater denkt bereits in diesen Kategorien. Wenn unser Briefing dieselbe
+Sprache spricht, fügt es sich ein, statt danebenzustehen.
