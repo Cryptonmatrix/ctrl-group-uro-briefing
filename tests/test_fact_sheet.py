@@ -184,6 +184,84 @@ def test_cash_only_client_has_crypto_and_cash_positions(fact_sheets):
     assert classes == ["Crypto", "Liquidity"]
 
 
+# --- Robustheit gegen kaputte Daten (der unbekannte Testklient) -------------------
+
+
+def test_malformed_portfolio_becomes_data_gap_not_crash(mini_clients, mini_reference):
+    import copy
+
+    bad = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-B02"))
+    bad["Portfolios"][0]["Volatility"] = "high"  # Text statt Zahl
+    bad["Portfolios"][0]["PerformanceHistory"].append({"Date": "not-a-date", "Value": "abc"})
+    bad["Portfolios"][0]["AssetsUnderManagementInDefaultCurrency"] = "n/a"
+    bad["Portfolios"][0]["PortfolioCurrency"] = 123  # falscher Typ
+    fs = build_fact_sheet(bad, mini_reference)
+    assert fs.client_ref == "CASE-B02"
+    assert fs.findings  # Profil, Verstösse, Notizen sind trotzdem da
+    ids = {f.id for f in fs.findings}
+    # Ein kaputter Datenpunkt wird übersprungen, ein Textwert wird None → Vola-Lücke statt Absturz
+    assert "perf-CASE-B02-01" in ids
+    assert "gap-vola-CASE-B02-01" in ids
+    assert not any(v.startswith("error") for v in fs.coverage.values()), fs.coverage
+
+
+def test_structurally_broken_portfolio_yields_gap_finding(mini_clients, mini_reference):
+    import copy
+
+    bad = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
+    bad["Portfolios"][0]["PerformanceHistory"] = "corrupt"  # kein Array
+    bad["Portfolios"][0]["Name"] = {"unexpected": "object"}  # str(...) klappt, aber:
+    bad["Portfolios"][0]["SecurityPositions"] = [{"SecurityId": "x", "TotalAmountInPortfolioCurrency": {"a": 1}}]
+    fs = build_fact_sheet(bad, mini_reference)
+    assert fs.client_ref == "CASE-A01"
+    assert "profile" in {f.id for f in fs.findings}
+    # Positionen mit unlesbaren Werten werden zu 0, nicht zum Crash
+    assert fs.coverage["positions"] in {"ok", "no_data"}
+
+
+def test_violation_path_ignores_booleans_and_non_weight_fields():
+    from uro.analytics.suitability import _limit_from_path
+
+    assert _limit_from_path({"ViolationPath": [{"FieldName": "PositionIsSecurityRuleField`1", "LeftValue": True, "RightValue": True}]}) is None
+    assert _limit_from_path({"ViolationPath": [{"FieldName": "ClientHasKnowledgeInProductClassRuleField`1", "LeftValue": 1.0, "RightValue": 1.0}]}) is None
+    assert _limit_from_path({"ViolationPath": [{"FieldName": "RegulatoryClientTypeRuleField`1", "LeftValue": 13.0, "RightValue": 13.0}]}) is None
+    assert _limit_from_path(
+        {"ViolationPath": [{"FieldName": "PositionPortfolioValueRuleField`1", "LeftValue": 0.6, "RightValue": 0.5}]}
+    ) == (0.6, 0.5)
+    assert _limit_from_path(
+        {"ViolationPath": [{"FieldName": "SimulationVolatilityRuleField`1", "LeftValue": 0.1186, "RightValue": 0.115}]}
+    ) == (0.1186, 0.115)
+
+
+def test_vola_breach_names_the_rule_when_the_engine_sees_it_too(mini_clients, mini_reference):
+    import copy
+
+    client = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
+    client["SuitabilityViolations"] = [
+        {"Id": 9, "RuleCode": "Compliance with maximum volatility", "RuleDescription": "x", "ErrorLevel": 2, "Severity": "Error", "PortfolioId": 1},
+        {"Id": 10, "RuleCode": "Knowledge of structured products", "RuleDescription": "y", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 1},
+    ]
+    fs = build_fact_sheet(client, mini_reference)
+    (breach,) = _find(fs, "risk-breach-")
+    assert "flags this too" in breach.detail and "Compliance with maximum volatility" in breach.detail
+    assert "0 violations" not in breach.detail and "none of them" not in breach.detail
+    assert breach.related_ids == ["viol-compliance-with-maximum-volatility"]
+    assert "viol-compliance-with-maximum-volatility" in {f.id for f in fs.findings}
+
+
+def test_vola_breach_with_unrelated_violations_says_so(mini_clients, mini_reference):
+    import copy
+
+    client = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
+    client["SuitabilityViolations"] = [
+        {"Id": 11, "RuleCode": "Knowledge of structured products", "RuleDescription": "y", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 1},
+    ]
+    fs = build_fact_sheet(client, mini_reference)
+    (breach,) = _find(fs, "risk-breach-")
+    assert "1 violation(s)" in breach.detail and "none of them concerns volatility" in breach.detail
+    assert breach.related_ids == []
+
+
 # --- Zahlen-Konsistenz: was in numbers steht, steht formatiert im Text -------------
 
 

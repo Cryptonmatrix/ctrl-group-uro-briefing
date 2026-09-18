@@ -124,6 +124,26 @@ def test_reference_index_isin_prefers_chf_tranche(ref_index: ReferenceIndex):
     assert ref_index.security_by_isin("LU0000000001")["Id"] == 103
 
 
+def test_to_float_rejects_bool_and_garbage():
+    from uro.ingest import to_float
+
+    assert to_float("12.5") == 12.5
+    assert to_float(3) == 3.0
+    assert to_float(True) == 0.0  # bool ist keine Zahl
+    assert to_float("abc", 1.0) == 1.0
+    assert to_float(None, 2.0) == 2.0
+
+
+def test_engine_view_hides_display_name_but_keeps_age(mini_clients):
+    from uro.ingest import engine_view
+
+    ron = next(c for c in mini_clients if c["ClientRef"] == "CASE-A01")
+    view = engine_view(ron)
+    assert "_DisplayName" not in view
+    assert view["_Age"] == 58
+    assert "_DisplayName" in ron  # das Original (UI-Datensatz) bleibt unverändert
+
+
 def test_reference_index_tolerates_missing_collections():
     idx = ReferenceIndex({})
     assert idx.securities_by_id == {}

@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from uro.config import CRYPTO_ASSET_CLASS, CRYPTO_CURRENCIES, PERPETUAL_MATURITY_YEAR
-from uro.ingest import ReferenceIndex, get, lst, parse_date
+from uro.ingest import ReferenceIndex, get, lst, parse_date, to_float
 from uro.models import PositionFact
 
 CASH_SECURITY_ID = -1
@@ -30,10 +30,10 @@ def is_cash(p: PositionFact) -> bool:
 
 def total_aum(client: dict[str, Any]) -> float:
     """Gesamtvermögen des Klienten in ReportingCurrency; Fallback: Summe der Portfolios."""
-    aum = float(get(client, "AssetsUnderManagementInDefaultCurrency", 0.0) or 0.0)
+    aum = to_float(get(client, "AssetsUnderManagementInDefaultCurrency"))
     if aum > 0:
         return aum
-    return float(sum(float(get(p, "AssetsUnderManagementInDefaultCurrency", 0.0) or 0.0) for p in lst(client, "Portfolios")))
+    return float(sum(to_float(get(p, "AssetsUnderManagementInDefaultCurrency")) for p in lst(client, "Portfolios")))
 
 
 def _maturity(sec: dict[str, Any]):
@@ -53,16 +53,16 @@ def security_positions(portfolio: dict[str, Any], ref: ReferenceIndex, total: fl
     for sp in lst(portfolio, "SecurityPositions"):
         sid = get(sp, "SecurityId")
         sec = ref.security(sid)
-        amount = float(get(sp, "TotalAmountInPortfolioCurrency", 0.0) or 0.0)
+        amount = to_float(get(sp, "TotalAmountInPortfolioCurrency"))
         prc = get(sec, "PRC")
         out.append(
             PositionFact(
-                security_id=int(sid) if sid is not None else 0,
+                security_id=int(to_float(sid, 0.0)),
                 name=str(get(sp, "SecurityName") or get(sec, "Name") or "Unnamed position"),
                 isin=get(sp, "Isin") or get(sec, "Isin"),
                 currency=str(get(sp, "Currency") or get(sec, "Currency") or "CHF"),
                 amount_chf=amount,
-                weight_pct=float(get(sp, "PortfolioValuePercentage", 0.0) or 0.0) * 100,
+                weight_pct=to_float(get(sp, "PortfolioValuePercentage")) * 100,
                 asset_class=get(sec, "AssetClassName"),
                 saa_asset_class=get(sec, "SAA_AssetClassName"),
                 sector=get(sec, "IndustryName"),
@@ -74,9 +74,11 @@ def security_positions(portfolio: dict[str, Any], ref: ReferenceIndex, total: fl
                 industry=get(sec, "SAA_IndustryName"),
                 country_group=get(sec, "SAA_CountryGroupName"),
                 currency_group=get(sec, "SAA_CurrencyGroupName"),
-                volatility=get(sec, "Volatility"),
-                prc=int(prc) if prc is not None else None,
-                sustainability_score=get(sec, "SustainabilityScore"),
+                volatility=to_float(get(sec, "Volatility"), default=None) if get(sec, "Volatility") is not None else None,
+                prc=int(to_float(prc)) if prc is not None else None,
+                sustainability_score=to_float(get(sec, "SustainabilityScore"), default=None)
+                if get(sec, "SustainabilityScore") is not None
+                else None,
                 maturity_date=_maturity(sec),
                 is_fund_unbundlable=bool(get(sec, "IsUnbundlingEnabled", False)),
             )
@@ -91,7 +93,7 @@ def account_positions(portfolio: dict[str, Any], total: float) -> list[PositionF
     for ap in lst(portfolio, "AccountPositions"):
         currency = str(get(ap, "Currency") or "CHF")
         crypto = currency.upper() in CRYPTO_CURRENCIES
-        amount = float(get(ap, "TotalAmountInPortfolioCurrency", 0.0) or 0.0)
+        amount = to_float(get(ap, "TotalAmountInPortfolioCurrency"))
         asset_class = CRYPTO_ASSET_CLASS if crypto else "Liquidity"
         out.append(
             PositionFact(
@@ -100,7 +102,7 @@ def account_positions(portfolio: dict[str, Any], total: float) -> list[PositionF
                 isin=None,
                 currency=currency,
                 amount_chf=amount,
-                weight_pct=float(get(ap, "PortfolioValuePercentage", 0.0) or 0.0) * 100,
+                weight_pct=to_float(get(ap, "PortfolioValuePercentage")) * 100,
                 asset_class=asset_class,
                 saa_asset_class=asset_class,
                 sector=None,

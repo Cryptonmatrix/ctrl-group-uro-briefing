@@ -18,7 +18,7 @@ from typing import Any
 from uro.analytics import build_fact_sheet
 from uro.analytics.proposals import open_proposals
 from uro.config import settings
-from uro.ingest import ReferenceIndex, display_name, get, load_clients, load_reference, lst
+from uro.ingest import ReferenceIndex, display_name, engine_view, get, load_clients, load_reference, lst
 from uro.models import ClientSummary, FactSheet, UploadResult
 
 
@@ -58,17 +58,23 @@ class DataStore:
     def reference(self) -> dict[str, Any]:
         return self._reference
 
-    def get_client(self, client_ref: str) -> dict[str, Any] | None:
+    def record(self, client_ref: str) -> dict[str, Any] | None:
+        """Der geladene Datensatz inkl. _DisplayName — nur für die Oberfläche (Klientenliste, Kopfzeile)."""
         for c in self._clients:
             if get(c, "ClientRef") == client_ref:
                 return c
         return None
 
+    def get_client(self, client_ref: str) -> dict[str, Any] | None:
+        """Die Engine-Sicht: ohne Klarnamen. Alles, was Richtung FactSheet, Prompt oder Chat geht, nimmt diese."""
+        rec = self.record(client_ref)
+        return engine_view(rec) if rec is not None else None
+
     def display_name_for(self, client_ref: str) -> str:
-        c = self.get_client(client_ref)
-        if c is None:
+        rec = self.record(client_ref)
+        if rec is None:
             return client_ref
-        return str(c.get("_DisplayName") or display_name(c))
+        return str(rec.get("_DisplayName") or display_name(rec))
 
     def summary(self, client: dict[str, Any]) -> ClientSummary:
         ref = str(get(client, "ClientRef", "?"))
@@ -104,7 +110,7 @@ class DataStore:
         """Gecachtes FactSheet; Cache wird bei reload/merge geleert."""
         if client_ref in self._fact_sheets:
             return self._fact_sheets[client_ref]
-        client = self.get_client(client_ref)
+        client = self.get_client(client_ref)  # Engine-Sicht, ohne Klarnamen
         if client is None:
             return None
         fs = build_fact_sheet(client, self._reference)

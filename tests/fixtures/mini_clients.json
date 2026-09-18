@@ -79,9 +79,9 @@
     "Transactions": null,
     "SuitabilityViolations": [
       {"Id": 1, "RuleCode": "Cluster risk of a single financial instrument", "RuleDescription": "Maximales Gewicht eines Einzeltitels überschritten", "ErrorLevel": 2, "Severity": "Error", "PortfolioId": 2, "LastViolatedDateUTC": "2026-07-01T00:00:00Z", "SecurityIsin": "LU0000000001",
-       "ViolationPath": [{"FieldName": "RegulatoryClientTypeRuleField`1", "LeftValue": 13.0, "RightValue": 13.0, "Operator": 10}, {"FieldName": "PositionWeightRuleField`1", "LeftValue": 0.60, "RightValue": 0.50, "Operator": 40}]},
+       "ViolationPath": [{"FieldName": "RegulatoryClientTypeRuleField`1", "LeftValue": 13.0, "RightValue": 13.0, "Operator": 10}, {"FieldName": "PositionPortfolioValueRuleField`1", "LeftValue": 0.60, "RightValue": 0.50, "Operator": 40}]},
       {"Id": 2, "RuleCode": "Cluster risk of a single financial instrument", "RuleDescription": "Maximales Gewicht eines Einzeltitels überschritten", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 2, "LastViolatedDateUTC": "2026-07-01T00:00:00Z", "SecurityIsin": "CH0010570767",
-       "ViolationPath": [{"FieldName": "PositionWeightRuleField`1", "LeftValue": 0.20, "RightValue": 0.15, "Operator": 40}]},
+       "ViolationPath": [{"FieldName": "PositionPortfolioValueRuleField`1", "LeftValue": 0.20, "RightValue": 0.15, "Operator": 40}]},
       {"Id": 3, "RuleCode": "Knowledge of structured products", "RuleDescription": "Kenntnisse zu strukturierten Produkten fehlen", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 2, "LastViolatedDateUTC": "2026-07-01T00:00:00Z"}
     ],
     "IndividualRuleOverrides": [

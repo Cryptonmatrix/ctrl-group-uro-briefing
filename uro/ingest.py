@@ -46,6 +46,32 @@ def lst(obj: dict[str, Any] | None, key: str) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
+def to_float(value: Any, default: float = 0.0) -> float:
+    """Zahl aus den Rohdaten. Zahlen-Strings werden geparst, bool und Unlesbares → default.
+
+    bool ist in Python ein int — True als 1.0 zu lesen wäre ein stiller Rechenfehler.
+    """
+    if value is None or isinstance(value, bool):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+ENGINE_HIDDEN_KEYS = {"_DisplayName"}
+
+
+def engine_view(client: dict[str, Any]) -> dict[str, Any]:
+    """Die Sicht der Engine auf einen Klienten: ohne Klarnamen.
+
+    `_DisplayName` bleibt im geladenen Datensatz für die Oberfläche erhalten (api.py), erreicht
+    aber über diese Sicht weder FactSheet noch Prompt. `_Age` (abgeleitet) bleibt.
+    Flache Kopie reicht — Unterobjekte sind durch strip_pii bereits PII-frei.
+    """
+    return {k: v for k, v in client.items() if k not in ENGINE_HIDDEN_KEYS}
+
+
 # ---------------------------------------------------------------------------
 # Datumswerte — die Daten sind zeitlich verschoben, deshalb nie date.today()
 # ---------------------------------------------------------------------------

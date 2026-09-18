@@ -27,20 +27,48 @@ from uro.models import Finding, FindingType, Severity
 SOURCE_VIOLATIONS = "clients.json › SuitabilityViolations"
 SOURCE_RISK = "clients.json › Portfolios[].Volatility vs reference.json › RiskProfiles[].MaxVola"
 
+# Nur diese ViolationPath-Felder tragen "Anteil vs. Limit" als Brüche (gemessen über alle 180 Verstösse,
+# docs/data-notes.md §8). PositionIsSecurityRuleField (bool), RegulatoryClientType, Knowledge- und
+# Universe-Regeln liefern keine Prozentgrenzen und werden ignoriert.
+NUMERIC_PATH_FIELDS = ("PortfolioValue", "Volatility", "GenericSimulationFilterNumeric")
+
+
+def _is_number(value: Any) -> bool:
+    """bool ist in Python ein int — True/False sind hier keine Zahlen."""
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
 
 def _limit_from_path(violation: dict[str, Any]) -> tuple[float, float] | None:
-    """Letzter ViolationPath-Eintrag, dessen Werte wie Anteile (0–1.5) aussehen → (actual, limit) als Brüche."""
+    """Passender ViolationPath-Eintrag → (actual, limit) als Brüche. None, wenn keiner passt.
+
+    Genommen wird der letzte Eintrag, bei dem sich actual und limit unterscheiden — bei einigen
+    Über-/Untergewichtungsregeln steht als letzter Eintrag ein Paar 'Ziel vs Ziel' (18.9 % vs 18.9 %),
+    das keine Grenzverletzung beschreibt.
+    """
     found: tuple[float, float] | None = None
     for entry in lst(violation, "ViolationPath"):
         field = str(get(entry, "FieldName", ""))
-        if "ClientType" in field:
+        if not any(token in field for token in NUMERIC_PATH_FIELDS):
             continue
         left, right = get(entry, "LeftValue"), get(entry, "RightValue")
-        if not isinstance(left, int | float) or not isinstance(right, int | float):
+        if not _is_number(left) or not _is_number(right):
             continue
-        if 0 <= left <= 1.5 and 0 < right <= 1.5:
+        if 0 <= left <= 1.5 and 0 < right <= 1.5 and abs(left - right) > 1e-9:
             found = (float(left), float(right))
     return found
+
+
+def _volatility_rule_codes(client: dict[str, Any], portfolio_id: Any) -> list[str]:
+    """RuleCodes der Regel-Engine, die für DIESES Portfolio eine Volatilitätsregel melden."""
+    codes = set()
+    for v in lst(client, "SuitabilityViolations"):
+        code = str(get(v, "RuleCode", ""))
+        if "volatil" not in code.lower():
+            continue
+        pid = get(v, "PortfolioId")
+        if portfolio_id is None or pid is None or pid == portfolio_id:
+            codes.add(code)
+    return sorted(codes)
 
 
 def violation_findings(
@@ -79,6 +107,8 @@ def violation_findings(
 
         numbers: dict[str, float] = {}
         detail_parts = [f"{len(items)} active violation(s) of rule '{code}' in portfolio {', '.join(pnrs)}."]
+        if names:
+            detail_parts.append(f"Affected positions: {', '.join(dict.fromkeys(names))}.")
         per_security = []
         for _, _, name, _, limits in affected:
             if not limits:
@@ -159,16 +189,21 @@ def risk_profile_findings(
     vola_pct = num(vola * 100)
     max_pct = num(max_vola * 100)
     reported = len(lst(client, "SuitabilityViolations"))
+    vola_codes = _volatility_rule_codes(client, get(portfolio, "PortfolioId"))
     profile_name = str(get(profile, "Name", "risk profile"))
     strategy = get(portfolio, "StrategyName")
 
     notes = []
     if strategy in NO_STRATEGY_NAMES:
         notes.append("No strategy is assigned to the portfolio, so the SAA-based rules never fire.")
-    if reported == 0:
+    if vola_codes:
+        # Die Regel-Engine sieht es ebenfalls (CASE-012, -018, -042) — dann sagen wir das, nicht das Gegenteil.
+        quoted = ", ".join(f"'{c}'" for c in vola_codes)
+        notes.append(f"The rule engine flags this too: {quoted}.")
+    elif reported == 0:
         notes.append("The rule engine reports 0 violations for this client — the breach is invisible in the standard violation list.")
     else:
-        notes.append(f"The rule engine reports {reported} violation(s) for this client, none of them this volatility breach.")
+        notes.append(f"The rule engine reports {reported} violation(s) for this client, but none of them concerns volatility.")
 
     return [
         Finding(
@@ -182,6 +217,7 @@ def risk_profile_findings(
             ),
             numbers={"volatility_pct": vola_pct, "max_volatility_pct": max_pct, "overshoot_pct": over_pct},
             portfolio_nr=pnr,
+            related_ids=[f"viol-{slug(c)}" for c in vola_codes],
             materiality_chf=aum,
             source=SOURCE_RISK,
         )
