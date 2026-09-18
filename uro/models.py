@@ -9,7 +9,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
 # Findings — das, was die Engine deterministisch berechnet
@@ -269,6 +269,8 @@ class StatementType(str, Enum):
 
 
 class Statement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     text: str
     type: StatementType
     finding_ids: list[str] = Field(
@@ -277,11 +279,15 @@ class Statement(BaseModel):
 
 
 class Section(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str
-    statements: list[Statement] = Field(max_length=3, description="Max 3 — 60-Sekunden-Regel")
+    statements: list[Statement] = Field(description="Max 3 — 60-Sekunden-Regel")
 
 
 class LikelyQuestion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     question: str
     answer_hint: str
 
@@ -300,6 +306,8 @@ class ActionKind(str, Enum):
 
 
 class NextBestAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     action: str = Field(description="Konkret und umsetzbar, mit Betrag oder Titel")
     rationale: str
     finding_ids: list[str]
@@ -310,13 +318,15 @@ class NextBestAction(BaseModel):
 class Briefing(BaseModel):
     """Die drei Abschnitte aus dem Case, plus die zwei Extras, die Punkte bringen."""
 
+    model_config = ConfigDict(extra="forbid")
+
     headline: str = Field(description="Ein Satz. Die Kernaussage des Gespraechs.")
     sections: list[Section] = Field(
         description="Genau 3: Recent Portfolio Development, Portfolio Health Check, "
         "Portfolio Outlook & Next Best Actions"
     )
-    likely_questions: list[LikelyQuestion] = Field(default_factory=list, max_length=2)
-    next_best_actions: list[NextBestAction] = Field(default_factory=list, max_length=3)
+    likely_questions: list[LikelyQuestion] = Field(default_factory=list)
+    next_best_actions: list[NextBestAction] = Field(default_factory=list)
 
     def word_count(self) -> int:
         parts = [self.headline]
