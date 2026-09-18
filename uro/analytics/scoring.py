@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from uro.models import Finding, Severity
 
-SEVERITY_WEIGHT = {Severity.ERROR: 3.0, Severity.WARNING: 2.0, Severity.INFO: 1.0}
+SEVERITY_WEIGHT = {
+    Severity.ERROR: 3.0,
+    Severity.WARNING: 2.0,
+    Severity.INFO: 1.0,
+    Severity.OPPORTUNITY: 1.0,  # Chancen zaehlen wie Beobachtungen; Feinjustierung kommt mit config.SEVERITY_WEIGHT (A2)
+}
 
 
 def score_findings(findings: list[Finding], total_aum_chf: float) -> list[Finding]:
@@ -16,5 +21,8 @@ def score_findings(findings: list[Finding], total_aum_chf: float) -> list[Findin
     for f in findings:
         materiality = 0.2 + 0.8 * min(1.0, f.materiality_chf / base)
         relevance = 0.5 + 0.5 * f.client_relevance
-        f.score = round(SEVERITY_WEIGHT[f.severity] * materiality * relevance, 3)
-    return sorted(findings, key=lambda f: f.score, reverse=True)
+        f.score = round(SEVERITY_WEIGHT.get(f.severity, 1.0) * materiality * relevance, 3)
+    ranked = sorted(findings, key=lambda f: f.score, reverse=True)
+    for i, f in enumerate(ranked, start=1):
+        f.rank = i
+    return ranked
