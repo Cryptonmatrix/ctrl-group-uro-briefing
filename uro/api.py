@@ -92,11 +92,36 @@ def client_briefing(ref: str) -> dict[str, Any]:
             status_code=503,
             detail="ANTHROPIC_API_KEY fehlt. Die Engine laeuft, der Briefing-Text braucht einen Schlüssel.",
         )
+    import anthropic
+
     from uro.llm.briefing import generate_briefing
     from uro.llm.validator import validate
 
     t0 = time.perf_counter()
-    briefing, issues = validate(generate_briefing(fs), fs)
+    try:
+        briefing, issues = validate(generate_briefing(fs), fs)
+    except anthropic.APITimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail="Das Sprachmodell hat nicht rechtzeitig geantwortet. Die Befunde der Engine "
+                   "stehen unten — sie stammen aus echten Daten und sind unabhängig vom Modell.",
+        ) from None
+    except anthropic.AuthenticationError:
+        raise HTTPException(
+            status_code=401,
+            detail="Der API-Schlüssel wird abgelehnt. Prüfen, ob er einem Workspace zugeordnet ist.",
+        ) from None
+    except anthropic.APIStatusError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Die Anthropic-API hat einen Fehler gemeldet ({exc.status_code}): {exc.message}",
+        ) from None
+    except anthropic.APIConnectionError:
+        raise HTTPException(
+            status_code=503,
+            detail="Keine Verbindung zur Anthropic-API. Netzwerk prüfen.",
+        ) from None
+
     result = BriefingResult(
         client_ref=ref, briefing=briefing, fact_sheet=fs, issues=issues,
         generation_seconds=round(time.perf_counter() - t0, 2),
