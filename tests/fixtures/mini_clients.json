@@ -1,0 +1,124 @@
+[
+  {
+    "ClientId": 9001, "ClientRef": "CASE-A01", "FirstName": "Ron", "LastName": "Burgundy", "Company": null,
+    "IsClientACompany": false, "IsEmployee": false,
+    "RegulatoryClientTypeId": 13, "RegulatoryClientTypeName": "Private client", "ReportingCurrency": "CHF",
+    "RiskProfileId": 17, "RiskProfileName": "Anlageprofil 5", "EsgProfileId": 2, "EsgProfileName": "No",
+    "Birthday": "1968-05-01", "ProfilingDateUtc": "2025-07-01T09:00:00Z",
+    "AssetsUnderManagementInDefaultCurrency": 140000.0, "LiquidityInDefaultCurrency": 4200.0,
+    "Portfolios": [
+      {
+        "PortfolioId": 1, "PublicGuid": "a1", "PortfolioNr": "CASE-A01-01", "Name": "Depot", "PortfolioCurrency": "CHF",
+        "StrategicAssetAllocationId": 1, "InvestmentServiceId": 1, "InvestmentServiceName": "Execution only",
+        "StrategyId": 8, "StrategyName": "No strategy", "ReferenceCurrency": "CHF",
+        "AssetsUnderManagementInDefaultCurrency": 140000.0, "LiquidityInDefaultCurrency": 4200.0,
+        "Volatility": 0.20, "ExpectedReturn": 0.06, "ValueAtRisk": 0.15, "FactoryDateUtc": "2026-09-18T02:00:00Z",
+        "SecurityPositions": [
+          {"SecurityId": 101, "Isin": "CH0010570767", "Valor": "1057076", "SecurityName": "Chocoladefabriken Lindt & Spruengli AG N", "Quantity": 9.8, "PricePerUnit": 10500.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 102900.0, "PortfolioValuePercentage": 0.735, "MarginalContributionToRisk": 0.19, "ContributionVolatility": 0.14},
+          {"SecurityId": 102, "Isin": "CH0406705126", "Valor": "40670512", "SecurityName": "Sensirion Holding AG", "Quantity": 700.0, "PricePerUnit": 47.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 32900.0, "PortfolioValuePercentage": 0.235, "MarginalContributionToRisk": 0.25, "ContributionVolatility": 0.06}
+        ],
+        "AccountPositions": [
+          {"AccountName": "Privatkonto CHF", "Currency": "CHF", "TotalAmountInPortfolioCurrency": 4200.0, "PortfolioValuePercentage": 0.03, "MarginalContributionToRisk": 0.0, "ContributionVolatility": 0.0}
+        ],
+        "PerformanceHistory": [
+          {"Date": "2025-06-01", "Value": 126000.0}, {"Date": "2025-07-01", "Value": 128000.0}, {"Date": "2025-08-01", "Value": 127000.0},
+          {"Date": "2025-09-01", "Value": 129000.0}, {"Date": "2025-10-01", "Value": 130500.0}, {"Date": "2025-11-01", "Value": 129500.0},
+          {"Date": "2025-12-01", "Value": 130000.0}, {"Date": "2026-01-01", "Value": 131000.0}, {"Date": "2026-02-01", "Value": 130000.0},
+          {"Date": "2026-03-01", "Value": 131500.0}, {"Date": "2026-04-01", "Value": 132000.0}, {"Date": "2026-05-01", "Value": 135000.0},
+          {"Date": "2026-06-01", "Value": 138000.0}, {"Date": "2026-07-01", "Value": 140000.0}
+        ]
+      }
+    ],
+    "Proposals": null, "Transactions": null, "SuitabilityViolations": null, "IndividualRuleOverrides": null,
+    "Tags": [{"TagName": "Switzerland", "TagTypeName": "Region", "Scope": "Client"}],
+    "ClientNotes": [
+      {"Note": "Prefers ESG-compliant investments, no defense or tobacco holdings.", "CreatedByDateUTC": "2026-09-10T08:00:00Z"},
+      {"Note": "Plans to retire in the next two years, increasing liquidity needs expected.", "CreatedByDateUTC": "2026-05-01T08:00:00Z"},
+      {"Note": "Extremely patient investor; unconcerned by short-term volatility, takes the long view.", "CreatedByDateUTC": "2026-03-11T08:00:00Z"}
+    ]
+  },
+  {
+    "ClientId": 9002, "ClientRef": "CASE-B02", "FirstName": "Mary", "LastName": "Poppins", "Company": null,
+    "IsClientACompany": false, "IsEmployee": false,
+    "RegulatoryClientTypeId": 13, "RegulatoryClientTypeName": "Private client", "ReportingCurrency": "CHF",
+    "RiskProfileId": 17, "RiskProfileName": "Anlageprofil 5", "EsgProfileId": 1, "EsgProfileName": "Yes",
+    "Birthday": "1975-02-10", "ProfilingDateUtc": "2023-06-01T09:00:00Z",
+    "AssetsUnderManagementInDefaultCurrency": 500000.0, "LiquidityInDefaultCurrency": 25000.0,
+    "Portfolios": [
+      {
+        "PortfolioId": 2, "PublicGuid": "b2", "PortfolioNr": "CASE-B02-01", "Name": "Vorsorge Indiv", "PortfolioCurrency": "CHF",
+        "StrategicAssetAllocationId": 92, "InvestmentServiceId": 10, "InvestmentServiceName": "Depository Advisory",
+        "StrategyId": 5, "StrategyName": "Investor profile 5", "ReferenceCurrency": "CHF",
+        "AssetsUnderManagementInDefaultCurrency": 500000.0, "LiquidityInDefaultCurrency": 25000.0,
+        "Volatility": 0.09, "ExpectedReturn": 0.05, "ValueAtRisk": 0.08, "FactoryDateUtc": "2026-09-18T02:00:00Z",
+        "SecurityPositions": [
+          {"SecurityId": 101, "Isin": "CH0010570767", "Valor": "1057076", "SecurityName": "Chocoladefabriken Lindt & Spruengli AG N", "Quantity": 9.52, "PricePerUnit": 10500.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 100000.0, "PortfolioValuePercentage": 0.20, "MarginalContributionToRisk": 0.15, "ContributionVolatility": 0.03},
+          {"SecurityId": 103, "Isin": "LU0000000001", "Valor": "9000001", "SecurityName": "Global Equity Fund (CHF)", "Quantity": 2000.0, "PricePerUnit": 150.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 300000.0, "PortfolioValuePercentage": 0.60, "MarginalContributionToRisk": 0.09, "ContributionVolatility": 0.054},
+          {"SecurityId": 104, "Isin": "CH0000000004", "Valor": "9000004", "SecurityName": "Swiss Confederation 1.5% 2027", "Quantity": 750.0, "PricePerUnit": 100.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 75000.0, "PortfolioValuePercentage": 0.15, "MarginalContributionToRisk": 0.04, "ContributionVolatility": 0.006}
+        ],
+        "AccountPositions": [
+          {"AccountName": "Privatkonto CHF", "Currency": "CHF", "TotalAmountInPortfolioCurrency": 25000.0, "PortfolioValuePercentage": 0.05, "MarginalContributionToRisk": 0.0, "ContributionVolatility": 0.0}
+        ],
+        "PerformanceHistory": [
+          {"Date": "2025-06-01", "Value": 480000.0}, {"Date": "2025-07-01", "Value": 485000.0}, {"Date": "2025-08-01", "Value": 490000.0},
+          {"Date": "2025-09-01", "Value": 495000.0}, {"Date": "2025-10-01", "Value": 500000.0}, {"Date": "2025-11-01", "Value": 505000.0},
+          {"Date": "2025-12-01", "Value": 510000.0}, {"Date": "2026-01-01", "Value": 512000.0}, {"Date": "2026-02-01", "Value": 515000.0},
+          {"Date": "2026-03-01", "Value": 518000.0}, {"Date": "2026-04-01", "Value": 520000.0}, {"Date": "2026-05-01", "Value": 512000.0},
+          {"Date": "2026-06-01", "Value": 505000.0}, {"Date": "2026-07-01", "Value": 500000.0}
+        ]
+      }
+    ],
+    "Proposals": [
+      {"ProposalId": 501, "PublicGuid": "p501", "PortfolioId": 2, "ProposalStatusId": 3, "ProposalStatusName": "Final", "AdvisoryTypeId": 2, "AdvisoryTypeName": "Investment proposal", "Currency": "CHF", "StrategicAssetAllocationId": 92, "ProposedDateUTC": "2026-06-12T10:00:00Z", "FinalizedDateUTC": "2026-06-15T10:00:00Z", "Reason": "Rebalancing", "Notes": "Switch part of the equity fund into bonds.", "ExpectedReturn": 0.045, "Volatility": 0.08, "ValueAtRisk": 0.07,
+       "SecurityPositions": [{"Isin": "CH0000000004", "SecurityName": "Swiss Confederation 1.5% 2027", "Quantity": 400.0, "PricePerUnit": 100.0, "Currency": "CHF", "TotalAmountInProposalCurrency": 40000.0, "ProposalValuePercentage": 0.08}],
+       "AccountPositions": [], "Contracts": [], "StandingOrders": []},
+      {"ProposalId": 502, "PublicGuid": "p502", "PortfolioId": 2, "ProposalStatusId": 4, "ProposalStatusName": "Abgelehnt", "AdvisoryTypeId": 2, "AdvisoryTypeName": "Investment proposal", "Currency": "CHF", "StrategicAssetAllocationId": 92, "ProposedDateUTC": "2026-02-01T10:00:00Z", "Reason": "Reduce fund concentration", "Notes": "", "SecurityPositions": [], "AccountPositions": [], "Contracts": [], "StandingOrders": []},
+      {"ProposalId": 503, "PublicGuid": "p503", "PortfolioId": 2, "ProposalStatusId": 1, "ProposalStatusName": "Entwurf", "AdvisoryTypeId": 1, "AdvisoryTypeName": "Depot meeting", "Currency": "CHF", "StrategicAssetAllocationId": 92, "ProposedDateUTC": "2026-09-01T10:00:00Z", "Reason": "Depot meeting", "SecurityPositions": [], "AccountPositions": [], "Contracts": [], "StandingOrders": []},
+      {"ProposalId": 504, "PublicGuid": "p504", "PortfolioId": 2, "ProposalStatusId": 3, "ProposalStatusName": "Final", "AdvisoryTypeId": 2, "AdvisoryTypeName": "Investment proposal", "Currency": "CHF", "StrategicAssetAllocationId": 92, "ProposedDateUTC": "2025-11-10T10:00:00Z", "FinalizedDateUTC": "2025-11-12T10:00:00Z", "TransactionsSubmittedDateUTC": "2025-11-20T10:00:00Z", "Reason": "Initial investment", "SecurityPositions": [], "AccountPositions": [], "Contracts": [], "StandingOrders": []}
+    ],
+    "Transactions": null,
+    "SuitabilityViolations": [
+      {"Id": 1, "RuleCode": "Cluster risk of a single financial instrument", "RuleDescription": "Maximales Gewicht eines Einzeltitels überschritten", "ErrorLevel": 2, "Severity": "Error", "PortfolioId": 2, "LastViolatedDateUTC": "2026-07-01T00:00:00Z", "SecurityIsin": "LU0000000001",
+       "ViolationPath": [{"FieldName": "RegulatoryClientTypeRuleField`1", "LeftValue": 13.0, "RightValue": 13.0, "Operator": 10}, {"FieldName": "PositionWeightRuleField`1", "LeftValue": 0.60, "RightValue": 0.50, "Operator": 40}]},
+      {"Id": 2, "RuleCode": "Cluster risk of a single financial instrument", "RuleDescription": "Maximales Gewicht eines Einzeltitels überschritten", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 2, "LastViolatedDateUTC": "2026-07-01T00:00:00Z", "SecurityIsin": "CH0010570767",
+       "ViolationPath": [{"FieldName": "PositionWeightRuleField`1", "LeftValue": 0.20, "RightValue": 0.15, "Operator": 40}]},
+      {"Id": 3, "RuleCode": "Knowledge of structured products", "RuleDescription": "Kenntnisse zu strukturierten Produkten fehlen", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 2, "LastViolatedDateUTC": "2026-07-01T00:00:00Z"}
+    ],
+    "IndividualRuleOverrides": [
+      {"RuleCode": "Knowledge of structured products", "RuleDescription": "Kenntnisse zu strukturierten Produkten fehlen"}
+    ],
+    "Tags": [{"TagName": "Health Care", "TagTypeName": "Industry", "Scope": "Client"}],
+    "ClientNotes": [
+      {"Note": "No direct positions in fossil fuels, please.", "CreatedByDateUTC": "2026-09-12T08:00:00Z"},
+      {"Note": "Needs approximately CHF 15,000 in liquid funds for the Q1 tax payment.", "CreatedByDateUTC": "2026-01-15T08:00:00Z"}
+    ]
+  },
+  {
+    "ClientId": 9003, "ClientRef": "CASE-C03", "FirstName": null, "LastName": null, "Company": "Company 009 AG",
+    "IsClientACompany": true, "IsEmployee": false,
+    "RegulatoryClientTypeId": 14, "RegulatoryClientTypeName": "Professional client", "ReportingCurrency": "CHF",
+    "RiskProfileId": null, "RiskProfileName": null, "EsgProfileId": null, "EsgProfileName": null,
+    "Birthday": null, "ProfilingDateUtc": null,
+    "AssetsUnderManagementInDefaultCurrency": 50000.0, "LiquidityInDefaultCurrency": 45000.0,
+    "Portfolios": [
+      {
+        "PortfolioId": 3, "PublicGuid": "c3", "PortfolioNr": "CASE-C03-01", "Name": "Firmenkonto", "PortfolioCurrency": "CHF",
+        "StrategicAssetAllocationId": 1, "InvestmentServiceId": 1, "InvestmentServiceName": "Execution only",
+        "StrategyId": 8, "StrategyName": "No strategy", "ReferenceCurrency": "CHF",
+        "AssetsUnderManagementInDefaultCurrency": 50000.0, "LiquidityInDefaultCurrency": 45000.0,
+        "FactoryDateUtc": "2026-09-18T02:00:00Z",
+        "SecurityPositions": [],
+        "AccountPositions": [
+          {"AccountName": "Kontokorrent CHF", "Currency": "CHF", "TotalAmountInPortfolioCurrency": 45000.0, "PortfolioValuePercentage": 0.9},
+          {"AccountName": "Crypto wallet", "Currency": "BTC", "TotalAmountInPortfolioCurrency": 5000.0, "PortfolioValuePercentage": 0.1}
+        ],
+        "PerformanceHistory": [{"Date": "2026-07-01", "Value": 50000.0}]
+      }
+    ],
+    "Proposals": null, "Transactions": null, "SuitabilityViolations": null, "IndividualRuleOverrides": null,
+    "Tags": [],
+    "ClientNotes": [
+      {"Note": "Needs approximately CHF 15,000 in liquid funds for the Q1 tax payment.", "CreatedByDateUTC": "2026-08-01T08:00:00Z"}
+    ]
+  }
+]

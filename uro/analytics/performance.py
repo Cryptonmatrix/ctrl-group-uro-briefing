@@ -1,21 +1,31 @@
 """OWNER: JACOB — Performance aus der Historie rechnen.
 
 PerformanceYTD fehlt auf ALLEN 57 Portfolios. Kommt aus PerformanceHistory
-(58 Monatspunkte pro Portfolio).
+(58 Monatspunkte pro Portfolio, Ende 2026-07-01 = `history_as_of`).
 
-Es gibt KEINE Positions-Historie. Performance-Attribution waere deshalb eine
-Näherung und ist hier bewusst noch nicht drin — siehe PITCH.md §10.
+Die NAV-Historie enthält Ein- und Auszahlungen — das ist keine reine Anlagerendite.
+Steht so im Finding, damit das LLM es sagen kann.
+
+Es gibt KEINE Positions-Historie. Die Treiber-Analyse (welche Position hat es getrieben)
+kommt in Auftrag A3 als gekennzeichnete Näherung über yfinance-Kurse.
 """
 
 from __future__ import annotations
 
+from datetime import date
+
+from uro.analytics.format import date_str, num, pct
+from uro.config import PERF_NEGATIVE_3M, PERF_POSITIVE_3M
 from uro.models import Finding, FindingType, PerformancePoint, Severity
+
+SOURCE = "clients.json › Portfolios[].PerformanceHistory"
 
 
 def _pct(new: float, old: float) -> float | None:
+    """Rendite in Prozent, bewusst NICHT vorgerundet: gerundet wird genau einmal, in format.num()."""
     if not old:
         return None
-    return round((new / old - 1) * 100, 2)
+    return round((new / old - 1) * 100, 6)
 
 
 def compute_returns(history: list[PerformancePoint]) -> dict[str, float | None]:
@@ -36,33 +46,63 @@ def compute_returns(history: list[PerformancePoint]) -> dict[str, float | None]:
     return {"1m": back(1), "3m": back(3), "12m": back(12), "ytd": ytd}
 
 
-def performance_findings(portfolio_nr: str, returns: dict[str, float | None], aum: float) -> list[Finding]:
-    out: list[Finding] = []
+def performance_findings(
+    portfolio_nr: str, returns: dict[str, float | None], aum: float, as_of: date | None = None
+) -> list[Finding]:
+    """Ein Finding je Portfolio: perf-<pnr>. Zu kurze Historie → perf-gap-<pnr> (DATA_GAP)."""
     r3 = returns.get("3m")
     r12 = returns.get("12m")
     ytd = returns.get("ytd")
 
     if r3 is None and r12 is None:
-        return [Finding(
-            id=f"perf-gap-{portfolio_nr}", type=FindingType.DATA_GAP, severity=Severity.WARNING,
-            title="Performance nicht berechenbar",
-            detail="Die Kurshistorie reicht für keine Periodenrendite aus.",
-            portfolio_nr=portfolio_nr, materiality_chf=aum,
-        )]
+        return [
+            Finding(
+                id=f"perf-gap-{portfolio_nr}",
+                type=FindingType.DATA_GAP,
+                severity=Severity.WARNING,
+                title=f"Performance not computable for portfolio {portfolio_nr}",
+                detail="The NAV history is too short for any period return (fewer than two monthly points).",
+                portfolio_nr=portfolio_nr,
+                materiality_chf=aum,
+                source=SOURCE,
+            )
+        ]
 
-    numbers = {k: v for k, v in
-               {"return_3m_pct": r3, "return_12m_pct": r12, "return_ytd_pct": ytd}.items()
-               if v is not None}
-    worst = min((v for v in (r3, r12, ytd) if v is not None), default=0.0)
-    severity = Severity.WARNING if worst < -5 else Severity.INFO
-    direction = "verloren" if worst < 0 else "zugelegt"
+    numbers = {
+        key: num(value)
+        for key, value in {"return_3m_pct": r3, "return_12m_pct": r12, "return_ytd_pct": ytd}.items()
+        if value is not None
+    }
+    lead = r3 if r3 is not None else r12
+    lead_label = "3 months" if r3 is not None else "12 months"
+    if lead > PERF_POSITIVE_3M * 100:
+        severity = Severity.OPPORTUNITY
+    elif lead < PERF_NEGATIVE_3M * 100:
+        severity = Severity.WARNING
+    else:
+        severity = Severity.INFO
 
-    out.append(Finding(
-        id=f"perf-{portfolio_nr}", type=FindingType.PERFORMANCE_DRIVER, severity=severity,
-        title=f"Portfolio hat über 3 Monate {r3 if r3 is not None else 0:+.2f}% {direction}",
-        detail=(f"3 Monate {r3}%, 12 Monate {r12}%, seit Jahresbeginn {ytd}%. "
-                "Gerechnet aus der Monatshistorie, da PerformanceYTD im Datensatz fehlt."),
-        numbers=numbers, portfolio_nr=portfolio_nr,
-        materiality_chf=abs(worst) / 100 * aum,
-    ))
-    return out
+    parts = []
+    if r3 is not None:
+        parts.append(f"3 months {pct(r3, signed=True)}")
+    if r12 is not None:
+        parts.append(f"12 months {pct(r12, signed=True)}")
+    if ytd is not None:
+        parts.append(f"year-to-date {pct(ytd, signed=True)}")
+
+    return [
+        Finding(
+            id=f"perf-{portfolio_nr}",
+            type=FindingType.PERFORMANCE,
+            severity=severity,
+            title=f"Portfolio {portfolio_nr} {pct(lead, signed=True)} over {lead_label}",
+            detail=(
+                f"{', '.join(parts)} (portfolio data as of {date_str(as_of)}). "
+                "Computed from the monthly NAV history; it includes cash flows, so it is not a pure investment return."
+            ),
+            numbers=numbers,
+            portfolio_nr=portfolio_nr,
+            materiality_chf=abs(lead) / 100 * aum,
+            source=SOURCE,
+        )
+    ]

@@ -1,28 +1,40 @@
-"""OWNER: JACOB — Rohdaten laden, normalisieren, PII entfernen.
+"""OWNER: JACOB — Rohdaten laden, normalisieren, PII entfernen, Referenz indizieren.
 
 Kritisch (siehe CLAUDE.md §4): Die Daten enthalten sowohl FEHLENDE Keys als auch
-explizite null-Werte. Deshalb überall `get(obj, key, default)` aus diesem Modul
-statt `obj.get(key)` — das faengt beide Faelle ab.
+explizite null-Werte. Deshalb überall `get(obj, key, default)` / `lst(obj, key)` aus diesem
+Modul statt `obj.get(key)` — das fängt beide Fälle ab.
 
-Muss auch mit den drei neuen Client-Dateien funktionieren, die noch kommen.
-Kein Dateiname ist hardcodiert.
+Muss auch mit den drei neuen Client-Dateien funktionieren, die noch kommen:
+kein Dateiname ist hardcodiert, und `load_clients` akzeptiert ein Array, ein
+Wrapper-Objekt (`{"clients": [...]}`) oder ein einzelnes Klient-Objekt.
+
+Dieses Modul ist die EINZIGE Stelle, die `FundUnbundlingMappings[].Weight` von 0–100
+auf 0–1 umrechnet (ReferenceIndex). Sonst nirgends.
 """
 
 from __future__ import annotations
 
 import json
+from collections import defaultdict
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 PII_KEYS = {"IBAN", "Birthday", "FirstName", "LastName"}
+CLIENT_WRAPPER_KEYS = ("clients", "Clients", "data", "Data")
+
+
+# ---------------------------------------------------------------------------
+# Defensiver Feldzugriff
+# ---------------------------------------------------------------------------
 
 
 def get(obj: dict[str, Any] | None, key: str, default: Any = None) -> Any:
     """Der einzige erlaubte Feldzugriff auf Case-Daten.
 
-    Faengt drei Faelle ab: obj ist None, key fehlt, key ist explizit null.
+    Fängt drei Fälle ab: obj ist None, key fehlt, key ist explizit null.
     """
-    if not obj:
+    if not obj or not isinstance(obj, dict):
         return default
     value = obj.get(key)
     return default if value is None else value
@@ -34,36 +46,118 @@ def lst(obj: dict[str, Any] | None, key: str) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
+# ---------------------------------------------------------------------------
+# Datumswerte — die Daten sind zeitlich verschoben, deshalb nie date.today()
+# ---------------------------------------------------------------------------
+
+
+def parse_datetime(value: Any) -> datetime | None:
+    """ISO-Datum oder -Zeitstempel (auch mit 'Z') → naive datetime. Sonst None."""
+    if not value:
+        return None
+    text = str(value).strip()
+    try:
+        if "T" in text or " " in text:
+            return datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
+        return datetime.combine(date.fromisoformat(text[:10]), datetime.min.time())
+    except (ValueError, TypeError):
+        return None
+
+
+def parse_date(value: Any) -> date | None:
+    dt = parse_datetime(value)
+    return dt.date() if dt else None
+
+
+def client_history_as_of(client: dict[str, Any]) -> date | None:
+    """Letztes PerformanceHistory-Datum über alle Portfolios → Anker für Renditen."""
+    dates = [
+        parse_date(get(h, "Date"))
+        for p in lst(client, "Portfolios")
+        for h in lst(p, "PerformanceHistory")
+    ]
+    known = [d for d in dates if d]
+    return max(known) if known else None
+
+
+def client_data_as_of(client: dict[str, Any]) -> date | None:
+    """Jüngstes Datum aller Klientenfelder → Anker für 'offen seit', Profil-Alter, Notiz-Alter."""
+    candidates: list[Any] = [get(client, "ProfilingDateUtc")]
+    candidates += [get(n, "CreatedByDateUTC") for n in lst(client, "ClientNotes")]
+    for p in lst(client, "Proposals"):
+        candidates += [get(p, "ProposedDateUTC"), get(p, "FinalizedDateUTC"), get(p, "TransactionsSubmittedDateUTC")]
+    candidates += [get(v, "LastViolatedDateUTC") for v in lst(client, "SuitabilityViolations")]
+    for p in lst(client, "Portfolios"):
+        candidates.append(get(p, "FactoryDateUtc"))
+        candidates += [get(h, "Date") for h in lst(p, "PerformanceHistory")]
+    known = [d for d in (parse_date(c) for c in candidates) if d]
+    return max(known) if known else None
+
+
+def age_years(birthday: Any, as_of: date | None) -> int | None:
+    """Alter in vollen Jahren zum Stichtag. Alter ist kein Geburtsdatum und darf ins FactSheet."""
+    b = parse_date(birthday)
+    if b is None or as_of is None:
+        return None
+    return as_of.year - b.year - ((as_of.month, as_of.day) < (b.month, b.day))
+
+
+# ---------------------------------------------------------------------------
+# Laden
+# ---------------------------------------------------------------------------
+
+
+def extract_clients(data: Any) -> list[dict[str, Any]] | None:
+    """Erkennt die drei Formen einer Klientendatei. None, wenn es keine ist (z. B. reference.json)."""
+    if isinstance(data, list):
+        return [c for c in data if isinstance(c, dict)]
+    if isinstance(data, dict):
+        for key in CLIENT_WRAPPER_KEYS:
+            if isinstance(data.get(key), list):
+                return [c for c in data[key] if isinstance(c, dict)]
+        if "ClientRef" in data or "ClientId" in data:
+            return [data]
+    return None
+
+
 def load_clients(path: str | Path) -> list[dict[str, Any]]:
-    """Laedt eine Datei in der Form von clients.json. Beliebiger Dateiname."""
+    """Lädt eine Datei in der Form von clients.json (Array, Wrapper oder Einzelobjekt). Beliebiger Dateiname."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(data, list):
-        raise ValueError(f"{path}: erwartet wird ein Array von Client-Objekten")
-    return [strip_pii(c) for c in data]
+    clients = extract_clients(data)
+    if clients is None:
+        raise ValueError(f"{path}: not recognised as client data (expected an array of clients, a wrapper object or one client)")
+    return [strip_pii(c) for c in clients]
 
 
 def load_reference(path: str | Path) -> dict[str, Any]:
-    """Laedt reference.json. Jede Collection kann komplett fehlen."""
+    """Lädt reference.json. Jede Collection kann komplett fehlen."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError(f"{path}: erwartet wird ein Objekt")
+        raise ValueError(f"{path}: expected an object with reference collections")
     return data
 
 
-def strip_pii(obj: Any) -> Any:
-    """Entfernt IBANs, Geburtsdaten und Klarnamen — rekursiv, VOR allem anderen.
+# ---------------------------------------------------------------------------
+# PII
+# ---------------------------------------------------------------------------
 
-    Der Anzeigename wird vorher als _DisplayName gesichert, damit das UI ihn
-    zeigen kann. In den LLM-Kontext geht er nicht.
+
+def strip_pii(obj: Any) -> Any:
+    """Entfernt IBANs, Geburtsdaten und Klarnamen — rekursiv, VOR allem anderen. Mutiert nichts.
+
+    Auf Klient-Ebene werden vorher zwei abgeleitete, PII-freie Werte gesichert:
+      _DisplayName  Klarname für die Oberfläche (geht nie in den LLM-Kontext)
+      _Age          Alter in Jahren zum jüngsten Datum der Klientendaten
     """
     if isinstance(obj, list):
         return [strip_pii(x) for x in obj]
     if not isinstance(obj, dict):
         return obj
 
-    out = {}
-    if "ClientRef" in obj:  # nur auf Client-Ebene
+    out: dict[str, Any] = {}
+    if "ClientRef" in obj or "ClientId" in obj:  # nur auf Client-Ebene
         out["_DisplayName"] = display_name(obj)
+        out["_Age"] = age_years(get(obj, "Birthday"), client_data_as_of(obj))
     for key, value in obj.items():
         if key in PII_KEYS:
             continue
@@ -78,16 +172,103 @@ def display_name(client: dict[str, Any]) -> str:
         return str(company)
     parts = [str(get(client, "FirstName", "")), str(get(client, "LastName", ""))]
     name = " ".join(p for p in parts if p).strip()
-    return name or str(get(client, "ClientRef", "Unbekannt"))
+    return name or str(get(client, "ClientRef", "Unknown client"))
 
 
 def index_by(rows: list[dict[str, Any]], key: str) -> dict[Any, dict[str, Any]]:
     """Kleine Hilfe für die Joins aus DATA.md."""
-    return {row[key]: row for row in rows if key in row}
+    return {row[key]: row for row in rows if isinstance(row, dict) and row.get(key) is not None}
 
 
 def find_client(clients: list[dict[str, Any]], ref: str) -> dict[str, Any]:
     for c in clients:
         if get(c, "ClientRef") == ref:
             return c
-    raise KeyError(f"Kein Klient mit ClientRef={ref!r}")
+    raise KeyError(f"No client with ClientRef={ref!r}")
+
+
+# ---------------------------------------------------------------------------
+# ReferenceIndex — alle Lookups aus reference.json an einer Stelle
+# ---------------------------------------------------------------------------
+
+
+class ReferenceIndex:
+    """Indizes über reference.json. Jede Collection darf fehlen (DATA.md)."""
+
+    def __init__(self, reference: dict[str, Any] | None) -> None:
+        reference = reference or {}
+        securities = lst(reference, "Securities")
+        self.securities_by_id: dict[int, dict[str, Any]] = index_by(securities, "Id")
+
+        by_isin: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for s in securities:
+            isin = get(s, "Isin")
+            if isin:
+                by_isin[str(isin)].append(s)
+        for tranches in by_isin.values():
+            tranches.sort(key=lambda s: get(s, "Currency") != "CHF")  # CHF-Tranche zuerst
+        self.securities_by_isin: dict[str, list[dict[str, Any]]] = dict(by_isin)
+
+        self.saa_by_id = index_by(lst(reference, "StrategicAssetAllocations"), "Id")
+        self.rules_by_code: dict[str, dict[str, Any]] = index_by(lst(reference, "SuitabilityRules"), "RuleCode")
+        self.risk_profiles_by_id = index_by(lst(reference, "RiskProfiles"), "Id")
+        self.esg_profiles_by_id = index_by(lst(reference, "EsgProfiles"), "Id")
+        self.strategies_by_id = index_by(lst(reference, "Strategies"), "Id")
+        self.proposal_status_by_id = index_by(lst(reference, "ProposalStatuses"), "Id")
+
+        # Fonds-Look-through: Weight kommt als 0–100 und wird GENAU HIER zu 0–1.
+        unbundling: dict[int, list[dict[str, Any]]] = defaultdict(list)
+        for row in lst(reference, "FundUnbundlingMappings"):
+            fund_id = get(row, "FundSecurityId")
+            weight = get(row, "Weight")
+            if fund_id is None or weight is None:
+                continue
+            converted = dict(row)
+            converted["Weight"] = float(weight) / 100.0
+            unbundling[fund_id].append(converted)
+        self.unbundling_by_fund_id: dict[int, list[dict[str, Any]]] = dict(unbundling)
+
+        recommended: set[int] = set()
+        for rec_list in lst(reference, "RecommendationLists"):
+            for s in lst(rec_list, "Securities"):
+                sid = get(s, "SecurityId")
+                if sid is not None:
+                    recommended.add(sid)
+        self.recommended_security_ids: set[int] = recommended
+
+    # -- Lookups mit leerem Default, damit Detektoren kein None prüfen müssen --
+
+    def security(self, security_id: Any) -> dict[str, Any]:
+        return self.securities_by_id.get(security_id, {})
+
+    def security_by_isin(self, isin: Any) -> dict[str, Any] | None:
+        tranches = self.securities_by_isin.get(str(isin)) if isin else None
+        return tranches[0] if tranches else None
+
+    def saa(self, saa_id: Any) -> dict[str, Any]:
+        return self.saa_by_id.get(saa_id, {})
+
+    def risk_profile(self, profile_id: Any) -> dict[str, Any] | None:
+        return self.risk_profiles_by_id.get(profile_id)
+
+    def esg_profile(self, profile_id: Any) -> dict[str, Any] | None:
+        return self.esg_profiles_by_id.get(profile_id)
+
+    def rule(self, rule_code: Any) -> dict[str, Any]:
+        return self.rules_by_code.get(rule_code, {})
+
+
+_INDEX_CACHE: dict[int, tuple[dict[str, Any], ReferenceIndex]] = {}
+
+
+def reference_index(reference: dict[str, Any]) -> ReferenceIndex:
+    """Gecachter ReferenceIndex pro Referenz-Objekt (48'101 Look-through-Zeilen baut man nicht 47-mal)."""
+    key = id(reference)
+    cached = _INDEX_CACHE.get(key)
+    if cached is not None and cached[0] is reference:
+        return cached[1]
+    index = ReferenceIndex(reference)
+    if len(_INDEX_CACHE) >= 4:
+        _INDEX_CACHE.clear()
+    _INDEX_CACHE[key] = (reference, index)
+    return index

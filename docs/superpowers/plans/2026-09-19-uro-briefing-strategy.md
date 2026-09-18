@@ -14,6 +14,11 @@
 > `eval/run_all.py`. **Ungetestet:** der LLM-Call (kein API-Key). **Noch Skelett:** `saa.py`, `notes.py`, `enrich/*`, `chat.py`, `extract_notes.py`,
 > `api.py` (nur `/health`). **Nicht vorhanden:** Frontend, Tests, Upload, Fallback, `config.py`. Aufträge A1/B1/C1 sind entsprechend revidiert;
 > Levins Finding-IDs (`perf-<pnr>`, `conc-single-<pnr>`, `risk-breach-<pnr>`, `gap-*`) sind übernommen.
+>
+> **Status 02:00:** ✅ A0 (Deps, `config.py`, CONTRACT CHANGE, Makefile, CLAUDE.md) · ✅ A1 (ReferenceIndex mit `Weight/100`, `store.py`,
+> `format.py`, `positions.py` inkl. Cash/Krypto, `coverage` + Zeitanker, `viol-<slug>` gebündelt, `RISK_PROFILE`, Notiz- und Profil-Findings,
+> 32 Tests, Smoke 47/47 mit 475 Findings) · ✅ Levin: Frontend `index.html` + API-Routen (Branch `levin/frontend-api`) · ⏳ B1 (API-Key!) · ⏳ C1 `service.py`.
+> Finding-Texte sind jetzt **Englisch** (Spec §2, Plan §10.1 Default) — Gianlucas Prompt sagt noch „Deutsch", das muss zusammenpassen.
 **Repo:** `https://github.com/Cryptonmatrix/ctrl-group-uro-briefing.git` · ein Branch `main` · **Sprache:** Doku Deutsch, Code/UI/LLM Englisch
 
 **Goal:** Ein Klick auf „Generate Briefing" in einem nachgebauten URO Advisor Pro liefert in < 15 s ein in 60 s lesbares, quellenbelegtes Briefing für **jeden** Klienten, inklusive eines per Upload hinzugefügten, unbekannten Testklienten, plus Follow-up-Chat.

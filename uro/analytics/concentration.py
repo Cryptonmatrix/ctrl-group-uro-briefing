@@ -1,51 +1,78 @@
-"""OWNER: JACOB — Klumpenrisiken nach Einzeltitel und Sektor.
+"""OWNER: JACOB — Klumpenrisiken nach Einzeltitel und Sektor (je Portfolio).
 
-Wichtig: auch Klumpenrisiken finden, die KEINE Regel meldet. Ron Burgundy haelt
-73.4% Lindt bei null gemeldeten Verstössen.
+Wichtig: auch Klumpenrisiken finden, die KEINE Regel meldet. Ron Burgundy hält
+73.5 % Lindt bei null gemeldeten Verstössen.
+
+Stand A1: Levins Logik mit Schwellen aus config.py, englische Texte, Zahlen über format.py,
+Konten (Cash/Krypto) zählen nicht als Titel. Auftrag A2 ergänzt Look-through, Währung,
+Region und die Spec-Schwellen auf Klientenebene.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
 
+from uro.analytics.format import chf, num, pct, round_chf, truncate
+from uro.analytics.positions import is_cash
+from uro.config import (
+    CONCENTRATION_LEGACY_SECTOR_WARN_PCT,
+    CONCENTRATION_LEGACY_SINGLE_ERROR_PCT,
+    CONCENTRATION_LEGACY_SINGLE_WARN_PCT,
+)
 from uro.models import Finding, FindingType, PositionFact, Severity
 
-SINGLE_WARN = 20.0
-SINGLE_ERROR = 40.0
-SECTOR_WARN = 35.0
+SOURCE = "clients.json › Portfolios[].SecurityPositions"
 
 
 def concentration_findings(portfolio_nr: str, positions: list[PositionFact], aum: float) -> list[Finding]:
     out: list[Finding] = []
-    if not positions:
+    securities = [p for p in positions if not is_cash(p)]
+    if not securities:
         return out
 
-    top = max(positions, key=lambda p: p.weight_pct)
-    if top.weight_pct >= SINGLE_WARN:
-        severity = Severity.ERROR if top.weight_pct >= SINGLE_ERROR else Severity.WARNING
-        out.append(Finding(
-            id=f"conc-single-{portfolio_nr}", type=FindingType.CONCENTRATION, severity=severity,
-            title=f"{top.weight_pct:.1f}% des Portfolios in einem einzigen Titel: {top.name}",
-            detail=(f"{top.name} macht {top.weight_pct:.1f}% aus "
-                    f"(CHF {top.amount_chf:,.0f}). Ab {SINGLE_ERROR:.0f}% gilt das als Klumpenrisiko."),
-            numbers={"weight_pct": round(top.weight_pct, 1), "amount_chf": round(top.amount_chf, 0)},
-            portfolio_nr=portfolio_nr, security_ids=[top.security_id],
-            materiality_chf=top.amount_chf,
-        ))
+    top = max(securities, key=lambda p: p.weight_pct)
+    if top.weight_pct >= CONCENTRATION_LEGACY_SINGLE_WARN_PCT:
+        severity = Severity.ERROR if top.weight_pct >= CONCENTRATION_LEGACY_SINGLE_ERROR_PCT else Severity.WARNING
+        weight = num(top.weight_pct)
+        amount = round_chf(top.amount_chf)
+        out.append(
+            Finding(
+                id=f"conc-single-{portfolio_nr}",
+                type=FindingType.CONCENTRATION,
+                severity=severity,
+                title=f"{pct(weight)} of portfolio {portfolio_nr} in a single position: {truncate(top.name, 60)}",
+                detail=(
+                    f"{truncate(top.name, 60)} is {pct(weight)} of the portfolio ({chf(amount)}). "
+                    f"Above {CONCENTRATION_LEGACY_SINGLE_ERROR_PCT:.0f}% a single position counts as a cluster risk."
+                ),
+                numbers={"weight_pct": weight, "amount_chf": amount},
+                portfolio_nr=portfolio_nr,
+                security_ids=[top.security_id],
+                materiality_chf=top.amount_chf,
+                source=SOURCE,
+            )
+        )
 
     by_sector: dict[str, float] = defaultdict(float)
-    for p in positions:
+    for p in securities:
         if p.sector:
             by_sector[p.sector] += p.weight_pct
     if by_sector:
         sector, weight = max(by_sector.items(), key=lambda kv: kv[1])
-        if weight >= SECTOR_WARN:
-            out.append(Finding(
-                id=f"conc-sector-{portfolio_nr}", type=FindingType.CONCENTRATION,
-                severity=Severity.WARNING,
-                title=f"{weight:.1f}% im Sektor {sector}",
-                detail=f"Sektorkonzentration {sector}: {weight:.1f}% des Portfolios.",
-                numbers={"sector_weight_pct": round(weight, 1)},
-                portfolio_nr=portfolio_nr, materiality_chf=weight / 100 * aum,
-            ))
+        if weight >= CONCENTRATION_LEGACY_SECTOR_WARN_PCT:
+            weight = num(weight)
+            out.append(
+                Finding(
+                    id=f"conc-sector-{portfolio_nr}",
+                    type=FindingType.CONCENTRATION,
+                    severity=Severity.WARNING,
+                    title=f"{pct(weight)} of portfolio {portfolio_nr} in sector {sector}",
+                    detail=f"Sector concentration: {sector} makes up {pct(weight)} of the portfolio (direct holdings, no fund look-through yet).",
+                    numbers={"sector_weight_pct": weight},
+                    portfolio_nr=portfolio_nr,
+                    security_ids=[p.security_id for p in securities if p.sector == sector],
+                    materiality_chf=weight / 100 * aum,
+                    source=SOURCE,
+                )
+            )
     return out
