@@ -7,3 +7,6 @@ frontend/dist/
 .env
 .DS_Store
 out/
+logs/
+data/cache/
+frontend/node_modules/
