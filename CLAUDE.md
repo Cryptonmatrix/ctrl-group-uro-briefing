@@ -214,12 +214,15 @@ Nur die **Top 3–5** kommen ins Briefing. Der Rest bleibt im Follow-up-Chat abr
 
 | | Ziel |
 |---|---|
-| **T+1h** | Repo, venv, `models.py` committet. Alle drei arbeiten parallel. |
-| **T+5h** | **Hässlicher Durchstich**: Klient wählen → echtes FactSheet → echter LLM-Call → Briefing im Browser. Hässlich ist okay, durchgängig ist Pflicht. |
-| **T+10h** | Findings-Scoring, Präferenzkonflikte aus Notes, House-View-JSON, URO-Look sitzt. |
-| **T+16h** | Bonus 1: Follow-up-Chat (fast gratis — das FactSheet existiert schon). Upload für neue Client-Dateien. |
-| **T+22h** | Batch-Lauf über alle 47 Klienten + die 3 neuen Dateien. Kennzahlen für den Pitch. |
-| **T−3h** | **Feature-Freeze.** Nur noch Stabilität, Demo-Probe, Slides. |
+| **22:00–22:15** | ✅ Erledigt: Repo, venv, Case-Daten, `models.py`, Modul-Skelette. |
+| **22:15–01:00** | Alle drei parallel: Jacob `analytics/`, Gianluca `llm/`, Levin Frontend gegen Mock-Response. |
+| **01:00–02:00** | **Hässlicher Durchstich**: Klient wählen → echtes FactSheet → echter LLM-Call → Briefing im Browser. Hässlich ist okay, durchgängig ist Pflicht. **Erst danach schlafen.** |
+| **02:00–08:00** | Schlafen. Sechs Stunden, alle drei. Wer um 5 Uhr Code schreibt, produziert morgen die Bugs. |
+| **08:00–11:00** | Findings-Scoring, Präferenzkonflikte aus Notes, House-View-JSON, URO-Look. **Die 3 neuen Client-Dateien kommen heute** → Upload testen. |
+| **11:00–12:30** | Bonus 1: Follow-up-Chat (fast gratis — das FactSheet existiert schon). |
+| **12:30–13:30** | Batch-Lauf über alle 47 Klienten + die neuen Dateien. Kennzahlen für den Pitch. |
+| **13:30** | **Feature-Freeze.** Ab hier nur noch Stabilität, Demo-Probe, Slides. Keine neuen Features, egal wie verlockend. |
+| **15:00** | **Pitch.** |
 
 **Die grösste strategische Gefahr:** sich ins Mockup-Design verlieben, bevor die Pipeline läuft.
 UX ist 15%. Implementation + AI Quality sind zusammen 45%.
