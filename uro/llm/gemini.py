@@ -9,9 +9,11 @@ Verwendet natives httpx mit REST-Aufruf und strukturiertem JSON-Schema.
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
+from typing import Any
 
 import httpx
 
@@ -21,6 +23,38 @@ from uro.llm.prompts import SYSTEM_PROMPT, render_fact_sheet
 from uro.models import Briefing, FactSheet
 
 logger = logging.getLogger(__name__)
+
+
+def _clean_for_gemini(node: Any, defs: dict[str, Any]) -> Any:
+    """Recursively inlines $ref and removes fields unsupported by Gemini response_schema."""
+    if isinstance(node, dict):
+        if "$ref" in node:
+            ref_name = node["$ref"].split("/")[-1]
+            target = copy.deepcopy(defs.get(ref_name, {}))
+            return _clean_for_gemini(target, defs)
+
+        cleaned: dict[str, Any] = {}
+        for k, v in node.items():
+            # Gemini does not accept $defs, extra, default, or additionalProperties
+            if k in ("$defs", "extra", "default", "additionalProperties"):
+                continue
+            # Only strip schema metadata 'title' (which is a string), not a property named 'title'
+            if k == "title" and isinstance(v, str):
+                continue
+            cleaned[k] = _clean_for_gemini(v, defs)
+        return cleaned
+    elif isinstance(node, list):
+        return [_clean_for_gemini(item, defs) for item in node]
+    return node
+
+
+def get_gemini_briefing_schema() -> dict[str, Any]:
+    """Generates an OpenAPI 3.0 schema strictly compatible with Google Gemini."""
+    raw = Briefing.model_json_schema()
+    defs = raw.get("$defs", {})
+    schema = _clean_for_gemini(raw, defs)
+    schema.pop("$defs", None)
+    return schema
 
 
 def get_gemini_api_key() -> str:
@@ -59,7 +93,7 @@ def generate_briefing_gemini(fact_sheet: FactSheet) -> Briefing:
         ],
         "generationConfig": {
             "response_mime_type": "application/json",
-            "response_schema": Briefing.model_json_schema(),
+            "response_schema": get_gemini_briefing_schema(),
             "temperature": 0.2,
         },
     }
@@ -86,8 +120,8 @@ def generate_briefing_gemini(fact_sheet: FactSheet) -> Briefing:
         return briefing
 
     except httpx.HTTPStatusError as exc:
-        logger.warning("Gemini HTTP error (%s): %s", exc.response.status_code, exc.response.text[:200])
-        raise LLMUnavailable(f"Gemini API returned status {exc.response.status_code}") from exc
+        logger.warning("Gemini HTTP error (%s): %s", exc.response.status_code, exc.response.text[:300])
+        raise LLMUnavailable(f"Gemini API returned status {exc.response.status_code}: {exc.response.text[:100]}") from exc
     except Exception as exc:
         logger.warning("Gemini briefing generation failed: %s", exc)
         raise LLMInvalid(f"Gemini generation error: {exc}") from exc
