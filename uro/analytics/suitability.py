@@ -58,6 +58,11 @@ def _limit_from_path(violation: dict[str, Any]) -> tuple[float, float] | None:
     return found
 
 
+def _digits(actual: float, limit: float) -> int:
+    """Eine Nachkommastelle — ausser actual und limit fallen dabei zusammen (18.94 % vs 18.89 %), dann zwei."""
+    return 1 if num(actual * 100, 1) != num(limit * 100, 1) else 2
+
+
 def _volatility_rule_codes(client: dict[str, Any], portfolio_id: Any) -> list[str]:
     """RuleCodes der Regel-Engine, die für DIESES Portfolio eine Volatilitätsregel melden."""
     codes = set()
@@ -114,11 +119,13 @@ def violation_findings(
             if not limits:
                 continue
             label = name or "portfolio"
-            per_security.append(f"{label}: {pct(limits[0] * 100)} vs limit {pct(limits[1] * 100)}")
+            d = _digits(*limits)
+            per_security.append(f"{label}: {pct(limits[0] * 100, digits=d)} vs limit {pct(limits[1] * 100, digits=d)}")
         if per_security:
             detail_parts.append("Actual vs limit — " + "; ".join(per_security) + ".")
         if worst and worst[4]:
-            numbers = {"actual_pct": num(worst[4][0] * 100), "limit_pct": num(worst[4][1] * 100)}
+            d = _digits(*worst[4])
+            numbers = {"actual_pct": num(worst[4][0] * 100, d), "limit_pct": num(worst[4][1] * 100, d)}
         rule_text = get(items[0], "RuleDescription") or get(ref.rule(code), "Description")
         if rule_text:
             detail_parts.append(f"Rule text (DE): '{truncate(str(rule_text), 160)}'")
