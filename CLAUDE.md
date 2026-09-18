@@ -159,19 +159,23 @@ relevanten Schwelle (Vorschlag: 2% des Vermögens) als Finding melden.
 ```
 uro-briefing/
 ├─ CLAUDE.md              ← diese Datei
-├─ data/                  ← clients.json, reference.json, house_view.json (selbst gebaut)
-├─ src/uro/
-│  ├─ models.py           ← FactSheet, Finding, Briefing  [gemeinsam, Stunde 1]
+├─ PITCH.md               ← Designentscheidungen und Pitch-Notizen
+├─ data/                  ← clients.json, reference.json, house_view.json (noch zu bauen)
+├─ uro/
+│  ├─ models.py           ← FactSheet, Finding, Briefing              [gemeinsam]
 │  ├─ ingest.py           ← laden, normalisieren, PII strippen        │ JACOB
-│  ├─ analytics/          ← performance, saa, concentration,          │ JACOB
-│  │                        suitability, notes, scoring               │
-│  ├─ enrich/             ← news.py, house_view.py                    │ GIANLUCA
-│  ├─ llm/                ← prompts.py, briefing.py, validator.py,    │ GIANLUCA
-│  │                        chat.py, extract_notes.py                 │
-│  └─ api.py              ← FastAPI                                   │ LEVIN
-├─ frontend/              ← Vite + React + Tailwind, URO-Look         │ LEVIN
-└─ eval/run_all.py        ← Batch über alle 47 Klienten               │ LEVIN
+│  ├─ analytics/          ← __init__ (build_fact_sheet), performance, │ JACOB
+│  │                        concentration, suitability, scoring,      │
+│  │                        saa + notes noch offen                    │
+│  ├─ enrich/             ← news.py, house_view.py — beide offen      │ GIANLUCA
+│  ├─ llm/                ← prompts, briefing, validator fertig;      │ GIANLUCA
+│  │                        chat + extract_notes offen                │
+│  ├─ api.py              ← FastAPI, nur /health                      │ LEVIN
+│  └─ demo.py             ← CLI-Durchstich, laeuft                    │ LEVIN
+├─ frontend/              ← Vite + React + Tailwind — noch nicht da   │ LEVIN
+└─ eval/run_all.py        ← Batch ueber alle Klienten, laeuft         │ LEVIN
 ```
+
 
 | | Wer | Ownership | Erstes Deliverable |
 |---|---|---|---|
@@ -188,13 +192,24 @@ Niemand wartet auf jemanden. **Wer die Contracts ändert, sagt es im Teamchat, b
 ## 6. Setup
 
 ```bash
-uv init --python 3.12
-uv add fastapi uvicorn anthropic pydantic python-dateutil pdfplumber httpx
-uv add --dev pytest
+uv sync
 ```
 
-**Python 3.12, nicht 3.14** — ein paar Libs hinken noch hinterher, und wir wollen nachts um drei keine
-Wheel-Build-Fehler debuggen.
+Das war's — `uv sync` baut das virtual environment mit exakt den Paketversionen aus `uv.lock`.
+
+**Alles wird vom Projektwurzelverzeichnis als Modul ausgefuehrt:**
+
+```bash
+uv run python -m uro.demo CASE-003 --facts
+```
+
+```bash
+uv run python -m eval.run_all
+```
+
+**Nicht** `python eval/run_all.py` — der Editable-Install greift auf diesem Setup nicht,
+und dann findet Python das Paket `uro` nicht. Als Modul vom Wurzelverzeichnis funktioniert es
+immer. Wer eine neue ausfuehrbare Datei anlegt, legt ein `__init__.py` daneben.
 
 **Git-Workflow:** ein Branch (`main`), oft committen, `git pull --rebase` vor jedem Push. Bei drei Leuten
 mit klarer Modul-Ownership ist das schneller als Feature-Branches — Merge-Hölle um Stunde 20 ist ein
