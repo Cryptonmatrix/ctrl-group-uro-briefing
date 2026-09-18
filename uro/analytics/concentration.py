@@ -1,7 +1,7 @@
 """OWNER: JACOB — Klumpenrisiken nach Einzeltitel und Sektor.
 
 Wichtig: auch Klumpenrisiken finden, die KEINE Regel meldet. Ron Burgundy haelt
-73.4% Lindt bei null gemeldeten Verstoessen.
+73.4% Lindt bei null gemeldeten Verstössen.
 """
 
 from __future__ import annotations

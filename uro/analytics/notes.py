@@ -1,4 +1,4 @@
-"""OWNER: JACOB (Pruefung) + GIANLUCA (Extraktion) — der Goldschatz.
+"""OWNER: JACOB (Prüfung) + GIANLUCA (Extraktion) — der Goldschatz.
 
 Jeder der 47 Klienten hat ClientNotes, z.B.:
   "No direct positions in fossil fuels, please."

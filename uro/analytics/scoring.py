@@ -1,4 +1,4 @@
-"""OWNER: JACOB — Priorisierung. Die Antwort auf 'Wie waehlt euer System aus?'
+"""OWNER: JACOB — Priorisierung. Die Antwort auf 'Wie wählt euer System aus?'
 
 score = severity x materiality x client_relevance
 Nur die Top 3-5 kommen ins Briefing, der Rest bleibt im Follow-up-Chat.

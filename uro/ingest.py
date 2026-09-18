@@ -1,7 +1,7 @@
 """OWNER: JACOB — Rohdaten laden, normalisieren, PII entfernen.
 
 Kritisch (siehe CLAUDE.md §4): Die Daten enthalten sowohl FEHLENDE Keys als auch
-explizite null-Werte. Deshalb ueberall `get(obj, key, default)` aus diesem Modul
+explizite null-Werte. Deshalb überall `get(obj, key, default)` aus diesem Modul
 statt `obj.get(key)` — das faengt beide Faelle ab.
 
 Muss auch mit den drei neuen Client-Dateien funktionieren, die noch kommen.
@@ -29,7 +29,7 @@ def get(obj: dict[str, Any] | None, key: str, default: Any = None) -> Any:
 
 
 def lst(obj: dict[str, Any] | None, key: str) -> list[Any]:
-    """Wie get(), aber garantiert eine Liste zurueck."""
+    """Wie get(), aber garantiert eine Liste zurück."""
     value = get(obj, key, [])
     return value if isinstance(value, list) else []
 
@@ -82,7 +82,7 @@ def display_name(client: dict[str, Any]) -> str:
 
 
 def index_by(rows: list[dict[str, Any]], key: str) -> dict[Any, dict[str, Any]]:
-    """Kleine Hilfe fuer die Joins aus DATA.md."""
+    """Kleine Hilfe für die Joins aus DATA.md."""
     return {row[key]: row for row in rows if key in row}
 
 

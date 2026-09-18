@@ -1,4 +1,4 @@
-"""OWNER: LEVIN — Batch ueber alle Klienten. Das ist eine Pitch-Slide, kein Test.
+"""OWNER: LEVIN — Batch über alle Klienten. Das ist eine Pitch-Slide, kein Test.
 
     uv run python eval/run_all.py                     nur die Engine (kein API-Key noetig)
     uv run python eval/run_all.py --briefings         mit LLM-Call und Validierung
@@ -58,7 +58,7 @@ def main(argv: list[str]) -> int:
     print(f"\nDatei: {path}")
     print(f"Fact Sheets erzeugt:       {ok} / {len(clients)}")
     print(f"Findings insgesamt:        {finding_total}  (Schnitt {finding_total / max(ok, 1):.1f} je Klient)")
-    print(f"Klienten mit Datenluecken: {gap_clients}  (sauber behandelt, kein Absturz)")
+    print(f"Klienten mit Datenlücken: {gap_clients}  (sauber behandelt, kein Absturz)")
     print(f"Engine-Zeit:               Schnitt {statistics.mean(engine_ms):.0f} ms, "
           f"max {max(engine_ms):.0f} ms")
     if with_briefings:
@@ -66,7 +66,7 @@ def main(argv: list[str]) -> int:
         print(f"Unbelegte Aussagen:        {issue_count}")
         print(f"Briefing-Zeit:             Schnitt {statistics.mean(brief_s):.1f} s, "
               f"max {max(brief_s):.1f} s")
-        print(f"Briefing-Laenge:           Schnitt {statistics.mean(words):.0f} Woerter (Ziel 150-220)")
+        print(f"Briefing-Laenge:           Schnitt {statistics.mean(words):.0f} Wörter (Ziel 150-220)")
     for ref, err in failures:
         print(f"  FEHLER {ref}: {err}")
     return 1 if failures else 0

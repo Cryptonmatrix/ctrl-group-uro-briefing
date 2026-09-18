@@ -5,8 +5,8 @@ Zwei Pflichten:
   - Offline-Fallback: faellt die Quelle aus, laeuft das Briefing mit dem Hinweis
     "Marktdaten nicht verfuegbar" weiter, statt abzustuerzen.
 
-Bonus fuer die Story: isoliert oder marktweit? Titelrendite vs. Sektor-ETF vs. Index
-beantwortet das deterministisch. Das LLM erklaert dann nur noch das Ergebnis.
+Bonus für die Story: isoliert oder marktweit? Titelrendite vs. Sektor-ETF vs. Index
+beantwortet das deterministisch. Das LLM erklärt dann nur noch das Ergebnis.
 """
 
 from __future__ import annotations

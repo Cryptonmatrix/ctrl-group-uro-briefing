@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>URO Advisor Pro — Briefing</title>
+<style>
+:root{
+  /* Aus den Original-Screenshots gepipettet, nicht geschaetzt */
+  --uro-blue:#5499e4; --uro-red:#e7493a; --uro-cyan:#64c2ea;
+  --uro-orange:#ff6b00; --page:#e9e9e9; --strip:#f7f8fa;
+  --ink:#2a292f; --muted:#7a7a83; --line:#dcdcdc;
+  --amber:#e8a33d; --green:#3f9e6b; --violet:#8b6bd9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);
+  font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+button{font:inherit;cursor:pointer}
+
+/* ---------- Kopfleisten, exakt wie im Original: blau / weiss / grau ---------- */
+.topbar{background:var(--uro-blue);height:34px;display:flex;align-items:center;
+  padding:0 14px;gap:14px;color:#fff}
+.topbar img{height:15px}
+.topbar .spacer{flex:1}
+.topbar .search{background:rgba(255,255,255,.18);border:0;border-radius:2px;color:#fff;
+  padding:3px 9px;width:230px;font-size:12px}
+.topbar .search::placeholder{color:rgba(255,255,255,.75)}
+.topbar .user{font-size:12px;opacity:.95}
+
+.clientbar{background:#fff;border-bottom:1px solid var(--line);height:38px;
+  display:flex;align-items:center;padding:0 14px;gap:10px}
+.clientbar .name{font-size:14px}
+.clientbar .spacer{flex:1}
+.actions{display:flex;align-items:center;gap:2px}
+.action{background:none;border:0;color:#5a5a63;padding:5px 9px;font-size:12px;border-radius:2px}
+.action:hover{background:#f0f0f3}
+.action.primary{background:var(--uro-orange);color:#fff;font-weight:600;padding:6px 14px}
+.action.primary:hover{background:#e66000}
+.action.primary:disabled{background:#c9c9cf;cursor:default}
+
+.metabar{background:var(--strip);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;padding:8px 14px;gap:26px}
+.metabar .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.metabar .v{font-size:13px}
+.metabar .spacer{flex:1}
+.metabar .total{font-size:18px}
+
+/* ---------- Rumpf ---------- */
+.body{display:flex;align-items:flex-start;gap:12px;padding:12px}
+.sidebar{width:240px;background:#fff;border:1px solid var(--line);flex:none;
+  max-height:calc(100vh - 110px);overflow:auto}
+.sidebar h3{margin:0;padding:9px 11px;font-size:11px;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff}
+.cli{display:block;width:100%;text-align:left;background:none;border:0;
+  border-bottom:1px solid #f0f0f0;padding:7px 11px}
+.cli:hover{background:#f6f9fd}
+.cli.on{background:#eaf3fc;box-shadow:inset 3px 0 0 var(--uro-blue)}
+.cli .r{font-size:10px;color:var(--muted)}
+.cli .n{font-size:12.5px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+.card{background:#fff;border:1px solid var(--line)}
+.card h2{margin:0;padding:9px 13px;font-size:12px;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--line)}
+.card .in{padding:13px}
+
+/* ---------- Kennzahl-Kacheln, wie das Raster rechts im Original ---------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px}
+.tile{background:#fff;border:1px solid var(--line);padding:10px 12px;min-height:74px}
+.tile .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.tile .v{font-size:21px;margin-top:5px}
+.tile .s{font-size:11px;color:var(--muted)}
+.tile.alarm{background:var(--uro-red);border-color:var(--uro-red);color:#fff}
+.tile.alarm .k,.tile.alarm .s{color:rgba(255,255,255,.9)}
+
+/* ---------- Findings ---------- */
+.finding{border-left:3px solid var(--line);padding:9px 12px;border-bottom:1px solid #f2f2f2}
+.finding:last-child{border-bottom:0}
+.finding.error{border-left-color:var(--uro-red);background:#fdf5f4}
+.finding.warning{border-left-color:var(--amber)}
+.finding.info{border-left-color:var(--uro-cyan)}
+.finding .t{display:flex;gap:8px;align-items:baseline}
+.finding .ttl{flex:1;font-size:13px}
+.finding .d{color:var(--muted);font-size:12px;margin-top:2px}
+.score{font-variant-numeric:tabular-nums;font-size:11px;color:var(--muted)}
+.badge{font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;
+  border-radius:2px;background:#eceef1;color:#5a5a63;white-space:nowrap}
+.badge.error{background:var(--uro-red);color:#fff}
+.badge.warning{background:var(--amber);color:#fff}
+
+/* ---------- Ladeanimation: zeigt die vier Datenquellen ---------- */
+.loader{display:none;padding:15px 13px}
+.loader.on{display:block}
+.srcs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:11px}
+.src{font-size:11px;padding:4px 10px;border:1px solid var(--line);border-radius:12px;
+  color:var(--muted);background:#fafafa;transition:all .25s}
+.src.done{border-color:var(--green);color:var(--green);background:#f2fbf6}
+.src.done::before{content:"✓ "}
+.bar{height:2px;background:#eee;overflow:hidden}
+.bar i{display:block;height:100%;width:30%;background:var(--uro-blue);
+  animation:slide 1.1s infinite ease-in-out}
+@keyframes slide{0%{margin-left:-30%}100%{margin-left:100%}}
+
+/* ---------- Briefing ---------- */
+.headline{font-size:15px;line-height:1.45;padding:13px;border-bottom:1px solid var(--line);background:#fafbfd}
+.sec{padding:11px 13px;border-bottom:1px solid #f2f2f2}
+.sec h4{margin:0 0 7px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.st{display:flex;gap:8px;padding:3px 0}
+.st .dot{width:7px;height:7px;border-radius:50%;margin-top:6px;flex:none}
+.st .tx{flex:1}
+.st .src{font-size:10px;border:0;background:none;padding:0;color:#aaa}
+.t-fact .dot{background:#9aa0a6} .t-market .dot{background:var(--uro-cyan)}
+.t-house_view .dot{background:var(--violet)} .t-recommendation .dot{background:var(--green)}
+.t-risk .dot{background:var(--uro-red)}
+.notice{padding:13px;color:var(--muted);font-size:12.5px;background:#fffdf5;
+  border-left:3px solid var(--amber)}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.legend{display:flex;gap:13px;flex-wrap:wrap;padding:8px 13px;font-size:11px;
+  color:var(--muted);border-top:1px solid var(--line)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:7px;height:7px;border-radius:50%;display:block}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <img src="/assets/logos/uro-dark.svg" alt="UNRISKOMEGA">
+  <span class="spacer"></span>
+  <input class="search" placeholder="Suche">
+  <span class="user">Hans Muster</span>
+</div>
+
+<div class="clientbar">
+  <span class="name" id="cname">Kein Klient gewählt</span>
+  <span class="spacer"></span>
+  <div class="actions">
+    <button class="action">Telefonberatung</button>
+    <button class="action">Beratermappe</button>
+    <button class="action">Notizen</button>
+    <button class="action">Analyse</button>
+    <button class="action">Kundeninformation</button>
+    <button class="action primary" id="gen" disabled>Generate Briefing</button>
+  </div>
+</div>
+
+<div class="metabar">
+  <div><div class="k">Kundentyp</div><div class="v" id="mtype">—</div></div>
+  <div><div class="k">Risikoprofil</div><div class="v" id="mprof">—</div></div>
+  <div><div class="k">Letzter Kontakt</div><div class="v" id="mcontact">—</div></div>
+  <span class="spacer"></span>
+  <div class="total" id="mtotal">—</div>
+</div>
+
+<div class="body">
+  <div class="sidebar">
+    <h3>Meine Kunden</h3>
+    <div id="clist"></div>
+  </div>
+
+  <div class="main" id="main">
+    <div class="card"><div class="empty">Wähle links einen Klienten.</div></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const chf = n => new Intl.NumberFormat('de-CH',{maximumFractionDigits:0}).format(n||0);
+const esc = s => String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+let current = null, facts = null;
+
+async function boot(){
+  const cs = await (await fetch('/api/clients')).json();
+  $('#clist').innerHTML = cs.map(c=>
+    `<button class="cli" data-ref="${c.ref}">
+       <div class="r">${c.ref}${c.is_company?' · Firma':''}</div>
+       <div class="n">${esc(c.name)}</div>
+       <div class="r">CHF ${chf(c.aum)}</div>
+     </button>`).join('');
+  $('#clist').onclick = e => { const b = e.target.closest('.cli'); if(b) select(b.dataset.ref); };
+}
+
+async function select(ref){
+  current = ref;
+  document.querySelectorAll('.cli').forEach(b=>b.classList.toggle('on', b.dataset.ref===ref));
+  const d = await (await fetch(`/api/clients/${ref}/facts`)).json();
+  facts = d;
+  const fs = d.fact_sheet;
+  $('#cname').textContent = `${d.display_name} (${fs.client_ref})`;
+  $('#mtype').textContent = fs.is_company ? 'Juristische Person' : 'Natürliche Person';
+  $('#mprof').textContent = fs.risk_profile_name || 'nicht hinterlegt';
+  $('#mcontact').textContent = fs.last_contact ? fs.last_contact.slice(0,10) : '—';
+  $('#mtotal').textContent = `${fs.reporting_currency} ${chf(fs.total_aum_chf)}`;
+  $('#gen').disabled = false;
+  renderFacts(d);
+}
+
+function renderFacts(d){
+  const fs = d.fact_sheet, p = fs.portfolios[0] || {};
+  const errs = fs.findings.filter(f=>f.severity==='error').length;
+  const vola = p.volatility!=null ? (p.volatility*100).toFixed(1)+'%' : '—';
+  const maxv = fs.max_volatility!=null ? (fs.max_volatility*100).toFixed(1)+'%' : '—';
+  const breach = p.volatility!=null && fs.max_volatility!=null && p.volatility>fs.max_volatility;
+
+  $('#main').innerHTML = `
+    <div class="tiles">
+      <div class="tile ${breach?'alarm':''}">
+        <div class="k">Volatilität</div><div class="v">${vola}</div>
+        <div class="s">Profillimit ${maxv}</div></div>
+      <div class="tile ${errs?'alarm':''}">
+        <div class="k">Befunde</div><div class="v">${errs}</div>
+        <div class="s">von ${fs.findings.length} gesamt</div></div>
+      <div class="tile"><div class="k">Rendite 3M</div>
+        <div class="v">${p.perf_3m_pct!=null?(p.perf_3m_pct>0?'+':'')+p.perf_3m_pct+'%':'—'}</div>
+        <div class="s">YTD ${p.perf_ytd_pct!=null?p.perf_ytd_pct+'%':'—'}</div></div>
+      <div class="tile"><div class="k">Liquidität</div>
+        <div class="v">${chf(fs.total_liquidity_chf)}</div>
+        <div class="s">${(100*fs.total_liquidity_chf/(fs.total_aum_chf||1)).toFixed(1)}% des Vermögens</div></div>
+      <div class="tile"><div class="k">Offene Vorschläge</div>
+        <div class="v">${fs.open_proposals}</div><div class="s">&nbsp;</div></div>
+    </div>
+
+    <div class="card" id="bcard">
+      <h2>60-Sekunden-Briefing</h2>
+      <div class="loader" id="loader">
+        <div class="srcs">
+          <span class="src" data-s="0">Portfolio &amp; Positionen</span>
+          <span class="src" data-s="1">CRM-Kontext</span>
+          <span class="src" data-s="2">Marktnews</span>
+          <span class="src" data-s="3">House View</span>
+        </div>
+        <div class="bar"><i></i></div>
+      </div>
+      <div id="bout"><div class="empty">„Generate Briefing" oben rechts.</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Befunde der Engine · ${d.engine_ms} ms</h2>
+      ${fs.findings.slice(0,8).map(f=>`
+        <div class="finding ${f.severity}">
+          <div class="t">
+            <span class="badge ${f.severity}">${f.severity}</span>
+            <span class="ttl">${esc(f.title)}</span>
+            <span class="score">${f.score.toFixed(2)}</span>
+          </div>
+          <div class="d">${esc(f.detail)}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+$('#gen').onclick = async () => {
+  if(!current) return;
+  $('#gen').disabled = true;
+  $('#loader').classList.add('on');
+  $('#bout').innerHTML = '';
+  const srcs = document.querySelectorAll('.src');
+  srcs.forEach((s,i)=>setTimeout(()=>s.classList.add('done'), 220+i*260));
+
+  let res, data;
+  try{
+    res = await fetch(`/api/clients/${current}/briefing`, {method:'POST'});
+    data = await res.json();
+  }catch(e){ data = {detail:'Server nicht erreichbar: '+e.message}; res = {ok:false}; }
+
+  $('#loader').classList.remove('on');
+  srcs.forEach(s=>s.classList.remove('done'));
+  $('#gen').disabled = false;
+
+  if(!res.ok){
+    $('#bout').innerHTML = `<div class="notice"><b>Briefing-Text nicht verfügbar.</b><br>
+      ${esc(data.detail||'Unbekannter Fehler')}<br><br>
+      Die Engine hat trotzdem gerechnet — die Befunde unten stammen aus echten Daten.</div>`;
+    return;
+  }
+  renderBriefing(data);
+};
+
+function renderBriefing(d){
+  const b = d.briefing;
+  $('#bout').innerHTML = `
+    <div class="headline">${esc(b.headline)}</div>
+    ${b.sections.map(s=>`
+      <div class="sec"><h4>${esc(s.title)}</h4>
+        ${s.statements.map(st=>`
+          <div class="st t-${st.type}"><span class="dot"></span>
+            <span class="tx">${esc(st.text)}
+              <span class="src">${st.finding_ids.join(', ')}</span></span></div>`).join('')}
+      </div>`).join('')}
+    ${b.next_best_actions.length?`<div class="sec"><h4>Next Best Actions</h4>
+      ${b.next_best_actions.map(a=>`<div class="st t-recommendation"><span class="dot"></span>
+        <span class="tx"><b>${esc(a.action)}</b><br>${esc(a.rationale)}</span></div>`).join('')}</div>`:''}
+    ${b.likely_questions.length?`<div class="sec"><h4>Womit der Kunde kommen wird</h4>
+      ${b.likely_questions.map(q=>`<div class="st t-fact"><span class="dot"></span>
+        <span class="tx">${esc(q.question)}<br><span style="color:#7a7a83">${esc(q.answer_hint)}</span></span></div>`).join('')}</div>`:''}
+    <div class="legend">
+      <span><i style="background:#9aa0a6"></i>Portfoliofakt</span>
+      <span><i style="background:var(--uro-cyan)"></i>Marktkontext</span>
+      <span><i style="background:var(--violet)"></i>House View</span>
+      <span><i style="background:var(--green)"></i>Empfehlung</span>
+      <span><i style="background:var(--uro-red)"></i>Risiko</span>
+      <span style="margin-left:auto">${d.generation_seconds}s · ${b.word_count||''} 
+        ${d.issues.length?`· <b style="color:var(--uro-red)">${d.issues.length} Aussagen verworfen</b>`
+                         :'· <b style="color:var(--green)">Validator sauber</b>'}</span>
+    </div>`;
+}
+
+boot();
+</script>
+</body>
+</html>

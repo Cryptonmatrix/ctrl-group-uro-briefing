@@ -1,4 +1,4 @@
-"""Die Contracts des Projekts. Aenderungen hier betreffen alle drei — vorher im Team absprechen.
+"""Die Contracts des Projekts. Änderungen hier betreffen alle drei — vorher im Team absprechen.
 
 Datenfluss:  Ingest -> FactSheet -> Finding[] -> LLM -> Briefing -> Validator
 """
@@ -46,7 +46,7 @@ class Finding(BaseModel):
     type: FindingType
     severity: Severity
     title: str = Field(description="Eine Zeile, sachlich, ohne Bewertung")
-    detail: str = Field(description="Ein bis zwei Saetze Kontext fuer das LLM")
+    detail: str = Field(description="Ein bis zwei Sätze Kontext für das LLM")
 
     # Die Zahlen. Alles, was im Briefing als Zahl auftauchen darf, steht hier drin.
     # Der Validator prueft den generierten Text gegen genau diese Werte.
@@ -67,7 +67,7 @@ class Finding(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# FactSheet — alles, was die Engine ueber einen Klienten weiss
+# FactSheet — alles, was die Engine über einen Klienten weiss
 # ---------------------------------------------------------------------------
 
 
@@ -114,7 +114,7 @@ class ClientIntent(BaseModel):
     subject: str = Field(description="z.B. 'fossile Energie', 'Immobilienkauf'")
     detail: str
     horizon_months: int | None = None
-    source_note: str = Field(description="Originalzitat, fuer Nachvollziehbarkeit im UI")
+    source_note: str = Field(description="Originalzitat, für Nachvollziehbarkeit im UI")
 
 
 class PortfolioFact(BaseModel):
@@ -183,7 +183,7 @@ class FactSheet(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Briefing — was das LLM zurueckgibt
+# Briefing — was das LLM zurückgibt
 # ---------------------------------------------------------------------------
 
 

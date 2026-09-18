@@ -25,8 +25,8 @@ BOLD = "\033[1m"
 
 def print_facts(fs: FactSheet, elapsed: float) -> None:
     print(f"\n{BOLD}FACT SHEET {fs.client_ref}{RESET}   (Engine: {elapsed * 1000:.0f} ms)")
-    print(f"  Vermoegen {fs.total_aum_chf:,.0f} {fs.reporting_currency} · "
-          f"Liquiditaet {fs.total_liquidity_chf:,.0f} · "
+    print(f"  Vermögen {fs.total_aum_chf:,.0f} {fs.reporting_currency} · "
+          f"Liquidität {fs.total_liquidity_chf:,.0f} · "
           f"Profil {fs.risk_profile_name or 'keins'} · {len(fs.findings)} Findings")
     print(f"\n{BOLD}  Top-Findings{RESET}")
     for f in fs.top_findings(6):
@@ -35,7 +35,7 @@ def print_facts(fs: FactSheet, elapsed: float) -> None:
 
 
 def print_briefing(briefing, issues, elapsed: float) -> None:
-    print(f"\n{BOLD}BRIEFING{RESET}   ({elapsed:.1f} s · {briefing.word_count()} Woerter)")
+    print(f"\n{BOLD}BRIEFING{RESET}   ({elapsed:.1f} s · {briefing.word_count()} Wörter)")
     print(f"\n  {BOLD}{briefing.headline}{RESET}\n")
     for section in briefing.sections:
         print(f"  {BOLD}{section.title}{RESET}")
@@ -75,7 +75,7 @@ def main(argv: list[str]) -> int:
     if facts_only:
         return 0
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        print(f"\n  {COLORS['risk']}ANTHROPIC_API_KEY fehlt — Briefing uebersprungen.{RESET}")
+        print(f"\n  {COLORS['risk']}ANTHROPIC_API_KEY fehlt — Briefing übersprungen.{RESET}")
         print("  Key in .env eintragen, dann: set -a && source .env && set +a")
         return 1
 

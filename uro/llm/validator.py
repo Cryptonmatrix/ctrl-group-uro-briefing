@@ -1,4 +1,4 @@
-"""OWNER: GIANLUCA — der Beweis fuer den Pitch-Satz.
+"""OWNER: GIANLUCA — der Beweis für den Pitch-Satz.
 
 'Unser System kann keine Zahl erfinden, weil es keine Zahl selbst rechnet.'
 
@@ -15,7 +15,7 @@ from uro.models import Briefing, FactSheet, ValidationIssue
 
 NUMBER = re.compile(r"-?\d[\d'.,]*")
 MIN_WORDS, MAX_WORDS = 120, 260
-# Kleine ganze Zahlen sind Zaehlungen ('drei Positionen'), keine Kennzahlen.
+# Kleine ganze Zahlen sind Zählungen ('drei Positionen'), keine Kennzahlen.
 SMALL_INT_CUTOFF = 12
 
 
@@ -82,6 +82,6 @@ def validate(briefing: Briefing, fact_sheet: FactSheet) -> tuple[Briefing, list[
     words = briefing.word_count()
     if not MIN_WORDS <= words <= MAX_WORDS:
         issues.append(ValidationIssue(
-            kind="too_long", detail=f"{words} Woerter, Ziel 150-220"))
+            kind="too_long", detail=f"{words} Wörter, Ziel 150-220"))
 
     return briefing, issues

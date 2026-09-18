@@ -4,7 +4,7 @@ PerformanceYTD fehlt auf ALLEN 57 Portfolios. Kommt aus PerformanceHistory
 (58 Monatspunkte pro Portfolio).
 
 Es gibt KEINE Positions-Historie. Performance-Attribution waere deshalb eine
-Naeherung und ist hier bewusst noch nicht drin — siehe PITCH.md §10.
+Näherung und ist hier bewusst noch nicht drin — siehe PITCH.md §10.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def performance_findings(portfolio_nr: str, returns: dict[str, float | None], au
         return [Finding(
             id=f"perf-gap-{portfolio_nr}", type=FindingType.DATA_GAP, severity=Severity.WARNING,
             title="Performance nicht berechenbar",
-            detail="Die Kurshistorie reicht fuer keine Periodenrendite aus.",
+            detail="Die Kurshistorie reicht für keine Periodenrendite aus.",
             portfolio_nr=portfolio_nr, materiality_chf=aum,
         )]
 
@@ -59,7 +59,7 @@ def performance_findings(portfolio_nr: str, returns: dict[str, float | None], au
 
     out.append(Finding(
         id=f"perf-{portfolio_nr}", type=FindingType.PERFORMANCE_DRIVER, severity=severity,
-        title=f"Portfolio hat ueber 3 Monate {r3 if r3 is not None else 0:+.2f}% {direction}",
+        title=f"Portfolio hat über 3 Monate {r3 if r3 is not None else 0:+.2f}% {direction}",
         detail=(f"3 Monate {r3}%, 12 Monate {r12}%, seit Jahresbeginn {ytd}%. "
                 "Gerechnet aus der Monatshistorie, da PerformanceYTD im Datensatz fehlt."),
         numbers=numbers, portfolio_nr=portfolio_nr,
