@@ -12,10 +12,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from uro.analytics.market_comparison import market_comparison_findings
 from uro.analytics.notes import check_intents
+from uro.analytics.performance import driver_findings
 from uro.analytics.scoring import score_findings
 from uro.enrich.house_view import house_view_findings, load_house_view
-from uro.enrich.market import build_snapshot, fetch_prices, resolve_tickers
+from uro.enrich.market import build_snapshot, fetch_prices, load_sector_proxies, resolve_tickers
 from uro.enrich.news import fetch_news
 from uro.ingest import ReferenceIndex
 from uro.models import ClientIntent, FactSheet, MarketSnapshot
@@ -49,7 +51,12 @@ def enrich_fact_sheet(
       2. Market Data & News: attaches news-1..6 (MARKET_EVENT) and propagates warnings.
       3. Client Intents: checks CRM intents deterministically (liquidity shortfall, exclusions >= 2%).
       4. Re-scores all findings using `score_findings` so the LLM gets correctly prioritized items.
+
+    Works on a deep copy and returns it: the engine FactSheet is cached per client (api.py, DataStore), and
+    enriching it in place would append hv-*/drv-*/mkt-*/news-* again on every "Generate Briefing" click.
     """
+    fs = fs.model_copy(deep=True)
+
     # 1. House View Findings
     try:
         if house_view is None:
@@ -81,6 +88,21 @@ def enrich_fact_sheet(
     except Exception as exc:
         logger.warning("Market enrichment failed for %s: %s", fs.client_ref, exc)
         fs.coverage["market"] = f"error: {type(exc).__name__}"
+
+    # 2b. Performance drivers & market comparison (A3)
+    try:
+        if market and market.prices:
+            proxies_map = load_sector_proxies()
+            drivers = driver_findings(fs, market)
+            comps = market_comparison_findings(fs, market, drivers, proxies_map)
+            fs.findings.extend(drivers)
+            fs.findings.extend(comps)
+            fs.coverage["drivers"] = "ok" if (drivers or comps) else "no_data"
+        else:
+            fs.coverage["drivers"] = "no_data"
+    except Exception as exc:
+        logger.warning("Driver & market comparison enrichment failed for %s: %s", fs.client_ref, exc)
+        fs.coverage["drivers"] = f"error: {type(exc).__name__}"
 
     # 3. Intent Findings
     try:

@@ -2,7 +2,9 @@
 
 Ziele:
   - Budget: Gesamter Market-Schritt max. 8 s (ThreadPoolExecutor mit Timeout).
-  - Resilienz: Lokaler Disk-Cache data/cache/market_latest.json fängt Netzwerkausfälle auf der Bühne ab.
+  - Resilienz: Disk-Cache je Klient (data/cache/market_<client_ref>.json) fängt Netzwerkausfälle auf der Bühne ab.
+    Je Klient, weil ein gemeinsamer Cache die News und Kurse des zuletzt geladenen Klienten in ein fremdes
+    Briefing tragen würde.
   - Niemals eine Exception nach oben werfen.
 """
 
@@ -14,6 +16,8 @@ import logging
 from datetime import date, datetime
 from pathlib import Path
 
+from uro.analytics.format import slug
+from uro.analytics.market_comparison import proxy_tickers
 from uro.config import get_settings
 from uro.enrich.news import fetch_news
 from uro.models import FactSheet, MarketSnapshot, PositionFact, PriceSeries
@@ -23,6 +27,7 @@ logger = logging.getLogger(__name__)
 # In-memory memo for the process lifetime
 _TICKER_MEMO: dict[int, str] = {}
 _OVERRIDES_CACHE: dict[str, str] | None = None
+_SECTOR_PROXIES_CACHE: dict[str, dict[str, str]] = {}
 
 
 def _load_overrides() -> dict[str, str]:
@@ -37,6 +42,20 @@ def _load_overrides() -> dict[str, str]:
         else:
             _OVERRIDES_CACHE = {}
     return _OVERRIDES_CACHE
+
+
+def load_sector_proxies(path: str = "data/sector_proxies.json") -> dict[str, str]:
+    global _SECTOR_PROXIES_CACHE
+    if path not in _SECTOR_PROXIES_CACHE:
+        p = Path(path)
+        if p.exists():
+            try:
+                _SECTOR_PROXIES_CACHE[path] = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                _SECTOR_PROXIES_CACHE[path] = {}
+        else:
+            _SECTOR_PROXIES_CACHE[path] = {}
+    return _SECTOR_PROXIES_CACHE[path]
 
 
 def resolve_single_ticker(pos: PositionFact) -> str | None:
@@ -150,19 +169,22 @@ def fetch_prices(tickers: list[str], proxies: list[str] | None = None) -> dict[s
         return {}
 
 
-def _save_cache(snapshot: MarketSnapshot) -> None:
+def _cache_file(client_ref: str) -> Path:
+    return Path("data/cache") / f"market_{slug(client_ref or 'unknown')}.json"
+
+
+def _save_cache(snapshot: MarketSnapshot, client_ref: str) -> None:
     try:
-        cache_dir = Path("data/cache")
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        cache_file = cache_dir / "market_latest.json"
+        cache_file = _cache_file(client_ref)
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
         cache_file.write_text(snapshot.model_dump_json(indent=2), encoding="utf-8")
     except Exception:
         logger.debug("Failed to write market snapshot disk cache")
 
 
-def _load_cache() -> MarketSnapshot | None:
+def _load_cache(client_ref: str) -> MarketSnapshot | None:
     try:
-        cache_file = Path("data/cache/market_latest.json")
+        cache_file = _cache_file(client_ref)
         if cache_file.exists():
             data = json.loads(cache_file.read_text(encoding="utf-8"))
             snap = MarketSnapshot.model_validate(data)
@@ -187,8 +209,8 @@ def build_snapshot(fact_sheet: FactSheet, budget_s: float = 8.0) -> MarketSnapsh
         ticker_map = resolve_tickers(all_positions, max_positions=settings.market_top_positions)
         tickers = list(ticker_map.values())
 
-        # Proxies from config
-        proxies = ["^SSMI", "^GSPC", "SOXX", "XLK", "XLV"]
+        # Proxies from proxy_tickers
+        proxies = proxy_tickers(fact_sheet, ticker_map, load_sector_proxies())
 
         # 2. Fetch prices & news in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -207,16 +229,17 @@ def build_snapshot(fact_sheet: FactSheet, budget_s: float = 8.0) -> MarketSnapsh
             warnings=[],
         )
         if settings.market_cache_enabled:
-            _save_cache(snap)
+            _save_cache(snap, fact_sheet.client_ref)
         return snap
 
+    # Kein `with`: dessen __exit__ ruft shutdown(wait=True) und wartet auf einen hängenden yfinance-Call —
+    # dann gilt das Budget nicht. So kehren wir nach `budget` Sekunden zurück, der Thread läuft im Hintergrund aus.
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_execute)
-            return future.result(timeout=budget)
+        return executor.submit(_execute).result(timeout=budget)
     except Exception as exc:
-        logger.warning("Market snapshot generation timed out or failed (%s). Checking cache.", exc)
-        cached = _load_cache()
+        logger.warning("Market snapshot generation timed out or failed (%r). Checking cache.", exc)
+        cached = _load_cache(fact_sheet.client_ref) if settings.market_cache_enabled else None
         if cached:
             return cached
 
@@ -228,3 +251,5 @@ def build_snapshot(fact_sheet: FactSheet, budget_s: float = 8.0) -> MarketSnapsh
             news=[],
             warnings=["Market data unavailable"],
         )
+    finally:
+        executor.shutdown(wait=False)

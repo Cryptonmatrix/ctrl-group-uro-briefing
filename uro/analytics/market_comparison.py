@@ -20,6 +20,14 @@ from uro.models import FactSheet, Finding, FindingType, MarketSnapshot, Position
 
 SOURCE = "yfinance 3-month closes × clients.json positions"
 
+# "decline is mixed" liest sich im Briefing wie eine Aussage, ist aber keine — deshalb ausformuliert.
+TITLE_BY_LABEL = {
+    "sector-wide": "decline is sector-wide",
+    "market-wide": "decline is market-wide",
+    "stock-specific": "decline is stock-specific",
+    "mixed": "decline shows no clear sector or market pattern",
+}
+
 
 def proxy_tickers(
     fs: FactSheet,
@@ -141,13 +149,13 @@ def market_comparison_findings(
 
         name = truncate(pos.name, 60)
         mkt_id = f"mkt-{sid}"
-        title = f"{name} decline is {label}"
+        title = f"{name} {TITLE_BY_LABEL[label]}"
 
         if sr is not None and st is not None:
             detail = (
                 f"{name} {pct(r, signed=True)} vs. sector proxy {st} ({industry}) "
                 f"{pct(sr, signed=True)} and market proxy {mt} {pct(mr, signed=True)} "
-                f"over the last 3 months (market data as of {d})."
+                f"over the last 3 months (market data as of {d}; each in its trading currency)."
             )
             numbers = {
                 "return_3m_pct": num(r),
@@ -157,7 +165,7 @@ def market_comparison_findings(
         else:
             detail = (
                 f"{name} {pct(r, signed=True)} vs. market proxy {mt} {pct(mr, signed=True)} "
-                f"over the last 3 months (market data as of {d})."
+                f"over the last 3 months (market data as of {d}; each in its trading currency)."
             )
             numbers = {
                 "return_3m_pct": num(r),
