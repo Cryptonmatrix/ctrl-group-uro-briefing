@@ -27,9 +27,10 @@ from uro.models import BriefingResult
 CSS = """
 :root{--ink:#1c1c1f;--muted:#6b6b73;--line:#d8d8dc;--red:#c0392b;--green:#2f7d52}
 *{box-sizing:border-box}
-body{margin:0;padding:28px 34px;color:var(--ink);background:#fff;
+html{background:#f2f2f4}
+body{margin:0 auto;padding:34px 42px;color:var(--ink);background:#fff;
   font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  max-width:820px}
+  max-width:900px;min-height:100vh;box-shadow:0 0 0 1px #e3e3e8}
 h1{font-size:19px;margin:0 0 2px}
 h2{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);
   margin:22px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line)}
@@ -51,8 +52,15 @@ ol.steps .why{color:var(--muted);font-size:12px;margin-top:2px}
 .open .sev{color:var(--red);font-weight:600}
 footer{margin-top:26px;padding-top:10px;border-top:1px solid var(--line);
   font-size:10.5px;color:var(--muted);line-height:1.5}
+#printbar{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:12px;
+  margin:-34px -42px 22px;padding:10px 42px;background:#fafafb;
+  border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+#printbar button{font:inherit;font-weight:600;color:#fff;background:#ff6b00;border:0;
+  border-radius:2px;padding:6px 14px;cursor:pointer}
 @media print{
-  body{padding:0;max-width:none}
+  html{background:#fff}
+  #printbar{display:none}
+  body{padding:0;max-width:none;box-shadow:none;margin:0}
   h2{break-after:avoid}
   section{break-inside:avoid}
   @page{margin:18mm}
@@ -137,6 +145,11 @@ def render_report(result: BriefingResult) -> str:
 <style>{CSS}</style></head>
 <body>
 
+<div id="printbar">
+  <button onclick="window.print()">Als PDF sichern</button>
+  <span>Im Druckdialog bei „Ziel“ auf „Als PDF sichern“ stellen.</span>
+</div>
+
 <h1>Gesprächsprotokoll — {_e(result.display_name or result.client_ref)}</h1>
 <div class="sub">{_e(result.client_ref)} · erstellt am {result.generated_at:%d.%m.%Y um %H:%M} Uhr</div>
 
@@ -162,6 +175,12 @@ def render_report(result: BriefingResult) -> str:
   Datenstand {result.generated_at:%d.%m.%Y}. Briefing {_e(modus)}. Alle Zahlen stammen aus
   der Portfolioanalyse und wurden gegen die Datenbasis geprüft.
 </footer>
+
+<script>
+// Direkt in den Druckdialog. Wer nur lesen will, bricht ihn ab — die Seite
+// bleibt stehen. Kurze Verzoegerung, damit das Layout vorher steht.
+window.addEventListener('load', () => setTimeout(() => window.print(), 400));
+</script>
 
 </body>
 </html>"""
