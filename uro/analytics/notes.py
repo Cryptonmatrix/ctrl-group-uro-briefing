@@ -199,8 +199,11 @@ def check_intents(
         detail_lower = intent.detail.lower()
         note_text = intent.source_note or intent.detail
 
-        # 1. Liquidity Need
+        # 1. Liquidity Need — nur, wenn die Engine den Bedarf nicht schon als liq-need aus derselben Notiz rechnet
+        #    (analytics/liquidity.py). Sonst stünde dieselbe Lücke zweimal unter den Top-Findings.
         if kind == "liquidity_need":
+            if fs is not None and any(f.id == "liq-need" for f in fs.findings):
+                continue
             m = _AMOUNT_RE.search(note_text) or _AMOUNT_RE.search(intent.detail)
             need_amount: float | None = None
             if m:
@@ -263,18 +266,9 @@ def check_intents(
             ):
                 target_industries.append("Energy")
                 excl_label = "fossil fuels"
-            if any(
-                w in subject_lower or w in detail_lower or w in note_text.lower()
-                for w in ["weapon", "defense", "arms", "military"]
-            ):
-                target_industries.append("Industrials")
-                excl_label = "defense & weapons"
-            if any(
-                w in subject_lower or w in detail_lower or w in note_text.lower()
-                for w in ["tobacco", "cigarette"]
-            ):
-                target_industries.append("Consumer Staples")
-                excl_label = "tobacco"
+            # Rüstung und Tabak bewusst NICHT über ganze Branchen: Industrials bzw. Consumer Staples messen etwas
+            # anderes. CASE-003 hätte sonst "excludes tobacco, but holds 73.4% in Consumer Staples" bekommen —
+            # das ist Lindt, also Schokolade. Die Daten kennen keine Unterbranche; CLAUDE.md §4 misst 0.00 %.
 
             for ind_name in target_industries:
                 exp_pct: float = 0.0

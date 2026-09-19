@@ -13,20 +13,25 @@ import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from uro.analytics import build_fact_sheet
-from uro.ingest import display_name, get, load_clients, load_reference, strip_pii
+from uro.ingest import display_name, get
 from uro.models import BriefingResult, ChatRequest
+from uro.store import DataStore
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 FRONTEND = ROOT / "frontend"
 
+# Upload und Reset laufen über den DataStore (store.merge, Auftrag A4): Erkennung aller Dateiformen,
+# PII-Strip, Dedupe, Look-through je Fonds ersetzen, frischer ReferenceIndex. _clients/_reference sind
+# nur noch Sichten darauf, die _sync_from_store() nach jeder Änderung neu setzt.
+_store: DataStore | None = None
 _clients: list[dict[str, Any]] = []
 _reference: dict[str, Any] = {}
 
@@ -38,9 +43,9 @@ async def lifespan(_: FastAPI):
     Bewusst lifespan statt @app.on_event: on_event ist veraltet und hing mit
     Starlette 1.6 beim Start, ohne eine Zeile zu loggen.
     """
-    global _clients, _reference
-    _clients = load_clients(DATA_DIR / "clients.json")
-    _reference = load_reference(DATA_DIR / "reference.json")
+    global _store
+    _store = DataStore(DATA_DIR)
+    _sync_from_store()
     yield
 
 
@@ -79,6 +84,20 @@ def _facts_cached(ref: str):
     return _facts[ref]
 
 
+def _sync_from_store() -> None:
+    """Nach Start, Upload und Reset: Sichten neu setzen, alle Caches leeren (Referenz kann sich geändert haben)."""
+    global _clients, _reference
+    assert _store is not None
+    _clients = _store.clients
+    _reference = _store.reference
+    _new_refs.clear()
+    _new_refs.update(_store.new_refs)
+    _facts.clear()
+    _enriched.clear()
+    _intents.clear()
+    _briefings.clear()
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     return {"status": "ok", "clients": len(_clients), "llm_ready": bool(os.environ.get("ANTHROPIC_API_KEY"))}
@@ -96,7 +115,7 @@ def list_clients() -> list[dict[str, Any]]:
                 "currency": get(c, "ReportingCurrency", "CHF"),
                 "risk_profile": get(c, "RiskProfileName"),
                 "is_company": bool(get(c, "IsClientACompany", False)),
-            "is_new": get(c, "ClientRef") in _new_refs,
+                "is_new": get(c, "ClientRef") in _new_refs,
             }
         )
     # Hochgeladene zuerst — der unbekannte Testklient soll oben stehen.
@@ -126,7 +145,12 @@ def client_briefing(ref: str) -> dict[str, Any]:
     from uro.llm.briefing import generate_briefing
     from uro.llm.extract_notes import extract_intents
     from uro.llm.transport import (
-        LLMAuthError, LLMBadRequest, LLMError, LLMRateLimit, LLMServerError, LLMTimeout,
+        LLMAuthError,
+        LLMBadRequest,
+        LLMError,
+        LLMRateLimit,
+        LLMServerError,
+        LLMTimeout,
     )
     from uro.llm.validator import validate
 
@@ -165,8 +189,11 @@ def client_briefing(ref: str) -> dict[str, Any]:
         briefing, mode = generate_briefing(fs)
         briefing, issues = validate(briefing, fs)
     except LLMTimeout as exc:
-        raise HTTPException(status_code=504, detail=f"{exc} Die Befunde der Engine stehen unten — "
-                            "sie stammen aus echten Daten und sind unabhaengig vom Modell.") from None
+        raise HTTPException(
+            status_code=504,
+            detail=f"{exc} Die Befunde der Engine stehen unten — "
+            "sie stammen aus echten Daten und sind unabhaengig vom Modell.",
+        ) from None
     except LLMAuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from None
     except LLMRateLimit as exc:
@@ -192,78 +219,43 @@ def client_briefing(ref: str) -> dict[str, Any]:
 
 
 @app.post("/api/upload")
-async def upload(file: UploadFile = File(...)) -> dict[str, Any]:
-    """Neue Klienten- oder Referenzdatei einspielen.
+async def upload(
+    file: Annotated[UploadFile | None, File()] = None,
+    files: Annotated[list[UploadFile] | None, File()] = None,
+) -> dict[str, Any]:
+    """Neue Klienten- oder Referenzdateien einspielen (Feld `file` oder mehrere `files`).
 
     Der Jury-Testklient kommt als Datei in der Form von clients.json. Deshalb
     darf nirgends ein Dateiname hardcodiert sein — diese Route ist der Beweis.
-
-    Uebergangsloesung in api.py, bis store.merge() (Auftrag A4) fertig ist.
+    Erkennung und Merge macht store.merge_files (Array, {"clients": [...]}, Einzelobjekt, Referenzdatei).
     """
-    import json
+    assert _store is not None
+    uploads = [f for f in [file, *(files or [])] if f is not None]
+    if not uploads:
+        raise HTTPException(status_code=400, detail="Keine Datei uebergeben.")
 
-    raw = await file.read()
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=400, detail=f"Keine gueltige JSON-Datei: {exc}") from None
+    result = _store.merge_files([(f.filename or "upload.json", await f.read()) for f in uploads])
+    _sync_from_store()
 
-    added, updated, errors = [], [], []
-
-    if isinstance(payload, list):
-        by_ref = {get(c, "ClientRef"): i for i, c in enumerate(_clients)}
-        for entry in payload:
-            if not isinstance(entry, dict):
-                errors.append("Eintrag ist kein Objekt, uebersprungen.")
-                continue
-            ref = get(entry, "ClientRef")
-            if not ref:
-                errors.append("Eintrag ohne ClientRef, uebersprungen.")
-                continue
-            clean = strip_pii(entry)
-            if ref in by_ref:
-                _clients[by_ref[ref]] = clean
-                updated.append(ref)
-            else:
-                _clients.append(clean)
-                added.append(ref)
-            _new_refs.add(ref)
-            _facts.pop(ref, None)
-            _enriched.pop(ref, None)
-            _intents.pop(ref, None)
-        reference_merged = False
-    elif isinstance(payload, dict):
-        for name, rows in payload.items():
-            if isinstance(rows, list):
-                _reference.setdefault(name, []).extend(rows)
-        _facts.clear()
-        _enriched.clear()
-        _intents.clear()
-        reference_merged = True
-    else:
-        raise HTTPException(status_code=400, detail="Erwartet wird ein Array oder ein Objekt.")
-
-    if not added and not updated and not reference_merged:
-        raise HTTPException(status_code=400, detail="Die Datei enthielt keine verwertbaren Klienten.")
+    if not result.added_client_refs and not result.updated_client_refs and not result.reference_merged:
+        raise HTTPException(
+            status_code=400, detail="; ".join(result.errors) or "Nichts Verwertbares in der Datei."
+        )
 
     return {
-        "added": len(added), "refs": added,
-        "added_client_refs": added, "updated_client_refs": updated,
-        "reference_merged": reference_merged, "errors": errors,
-        "filename": file.filename,
+        **result.model_dump(),
+        "added": len(result.added_client_refs),
+        "refs": result.added_client_refs,
+        "filename": ", ".join(f.filename or "upload.json" for f in uploads),
     }
 
 
 @app.post("/api/reset")
 def reset() -> dict[str, Any]:
     """Zurueck auf die ausgelieferten Daten. Fuer den Fall, dass ein Upload die Demo stoert."""
-    global _clients, _reference
-    _clients = load_clients(DATA_DIR / "clients.json")
-    _reference = load_reference(DATA_DIR / "reference.json")
-    _facts.clear()
-    _enriched.clear()
-    _intents.clear()
-    _new_refs.clear()
+    assert _store is not None
+    _store.reset()
+    _sync_from_store()
     return {"status": "ok", "clients": len(_clients)}
 
 

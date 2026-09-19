@@ -116,6 +116,11 @@ class DataStore:
     def reference(self) -> dict[str, Any]:
         return self._reference
 
+    @property
+    def new_refs(self) -> set[str]:
+        """Per Upload hinzugefügte ClientRefs (Badge NEW); leer nach reset()."""
+        return set(self._new_refs)
+
     def record(self, client_ref: str) -> dict[str, Any] | None:
         """Der geladene Datensatz inkl. _DisplayName — nur für die Oberfläche (Klientenliste, Kopfzeile)."""
         for c in self._clients:
@@ -341,7 +346,11 @@ class DataStore:
                 errors.append(f"{filename}: invalid JSON ({exc.msg}, line {exc.lineno})")
                 continue
 
-            res = self.merge(payload, filename)
+            try:
+                res = self.merge(payload, filename)
+            except Exception as exc:  # noqa: BLE001 — eine kaputte Datei darf den Upload der anderen nicht kippen
+                errors.append(f"{filename}: could not be merged ({type(exc).__name__}: {exc})")
+                continue
             for ref in res.added_client_refs:
                 if ref not in added_client_refs:
                     added_client_refs.append(ref)
