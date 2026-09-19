@@ -9,13 +9,14 @@ Beantwortet Fragen direkt aus dem FactSheet und dem Briefing:
 from __future__ import annotations
 
 import logging
+import os
 import re
 
 import anthropic
 
 from uro.config import get_settings
-from uro.llm.client import get_client
 from uro.llm.prompts import CHAT_SYSTEM_PROMPT
+from uro.llm.transport import post_messages
 from uro.models import Briefing, ChatResponse, FactSheet
 
 logger = logging.getLogger(__name__)
@@ -209,12 +210,11 @@ def answer(
     context_str = build_chat_context(fact_sheet, briefing)
 
     # 1. Try Primary: Anthropic
-    anthropic_available = bool(settings.anthropic_api_key)
+    anthropic_available = bool(
+        (settings.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    )
     if client is not None or anthropic_available:
         try:
-            if client is None:
-                client = get_client()
-
             messages = [
                 {
                     "role": "user",
@@ -241,14 +241,20 @@ def answer(
             if settings.llm_effort:
                 kwargs["output_config"] = {"effort": settings.llm_effort}
 
-            resp = client.messages.create(**kwargs)
-            answer_text = ""
-            for block in resp.content:
-                if hasattr(block, "text"):
-                    answer_text += block.text
+            if client is not None:
+                resp = client.messages.create(**kwargs)
+                answer_text = "".join(block.text for block in resp.content if hasattr(block, "text"))
+            else:
+                # Standardweg wie im Briefing: stdlib-Transport, dessen Timeout nachweislich greift
+                # (das SDK hing auf dem Demo-Rechner > 280 s, siehe llm/transport.py).
+                data = post_messages(kwargs, timeout=settings.llm_timeout_s, retries=settings.llm_max_retries)
+                answer_text = "".join(
+                    b.get("text", "") for b in data.get("content") or [] if b.get("type") == "text"
+                )
+            if not answer_text.strip():
+                raise RuntimeError("Empty chat answer")
 
-            sources = extract_sources_from_text(answer_text)
-            return ChatResponse(answer=answer_text.strip(), sources=sources)
+            return ChatResponse(answer=answer_text.strip(), sources=_known_sources(answer_text, fact_sheet))
         except Exception as exc:
             logger.warning("Anthropic chat failed (%s). Attempting Gemini failover.", exc)
 
@@ -259,15 +265,21 @@ def answer(
             from uro.llm.gemini import ask_chat_gemini
 
             answer_text = ask_chat_gemini(context_str, question, history)
-            sources = extract_sources_from_text(answer_text)
-            return ChatResponse(answer=answer_text.strip(), sources=sources)
+            return ChatResponse(answer=answer_text.strip(), sources=_known_sources(answer_text, fact_sheet))
         except Exception as exc:
             logger.warning("Gemini chat failed (%s). Falling back to rule-based answer.", exc)
 
     # 3. Tier-3: Deterministic Rule-Based Fallback
     ans_text = _rule_based_fallback_answer(question, fact_sheet, briefing)
-    sources = extract_sources_from_text(ans_text)
-    return ChatResponse(answer=ans_text, sources=sources)
+    return ChatResponse(answer=ans_text, sources=_known_sources(ans_text, fact_sheet))
+
+
+def _known_sources(text: str, fact_sheet: FactSheet) -> list[str]:
+    """Nur zitierte IDs, die es im Fact Sheet wirklich gibt (Findings oder pos-<secid>) — sonst zeigt die UI tote Chips."""
+    known = set(fact_sheet.by_id()) | {
+        f"pos-{p.security_id}" for pf in fact_sheet.portfolios for p in pf.positions
+    }
+    return [s for s in extract_sources_from_text(text) if s in known]
 
 
 def main(argv: list[str]) -> int:

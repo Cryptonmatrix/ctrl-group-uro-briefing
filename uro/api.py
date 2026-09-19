@@ -261,8 +261,11 @@ def reset() -> dict[str, Any]:
 
 @app.post("/api/clients/{ref}/chat")
 def chat(ref: str, request: ChatRequest) -> dict[str, Any]:
-    """Follow-up-Fragen gegen dasselbe Fact Sheet, aus dem das Briefing entstand."""
-    fs = _facts_cached(ref)
+    """Follow-up-Fragen gegen dasselbe Fact Sheet, aus dem das Briefing entstand.
+
+    Nach einem Briefing ist das das angereicherte (drv-/hv-/news-/intent-Findings), sonst das der Engine.
+    """
+    fs = _enriched.get(ref) or _facts_cached(ref)
     if not request.messages:
         raise HTTPException(status_code=400, detail="Keine Frage uebergeben.")
 
@@ -278,6 +281,8 @@ def chat(ref: str, request: ChatRequest) -> dict[str, Any]:
 
 
 app.mount("/assets", StaticFiles(directory=ROOT / "assets"), name="assets")
+# Zusatzskripte der Oberfläche (z. B. frontend/chat.js) — eigene Dateien, damit index.html konfliktarm bleibt
+app.mount("/frontend", StaticFiles(directory=FRONTEND), name="frontend")
 
 
 @app.get("/")
