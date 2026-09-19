@@ -51,7 +51,12 @@ def enrich_fact_sheet(
       2. Market Data & News: attaches news-1..6 (MARKET_EVENT) and propagates warnings.
       3. Client Intents: checks CRM intents deterministically (liquidity shortfall, exclusions >= 2%).
       4. Re-scores all findings using `score_findings` so the LLM gets correctly prioritized items.
+
+    Works on a deep copy and returns it: the engine FactSheet is cached per client (api.py, DataStore), and
+    enriching it in place would append hv-*/drv-*/mkt-*/news-* again on every "Generate Briefing" click.
     """
+    fs = fs.model_copy(deep=True)
+
     # 1. House View Findings
     try:
         if house_view is None:

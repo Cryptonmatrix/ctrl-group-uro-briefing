@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import time
+from collections import Counter
 from datetime import datetime
 
 import pytest
 
+import uro.enrich.market as market_mod
 from uro.analytics.format import num, pct, pp
-from uro.analytics.market_comparison import market_comparison_findings, proxy_tickers
+from uro.analytics.market_comparison import TITLE_BY_LABEL, market_comparison_findings, proxy_tickers
 from uro.analytics.performance import driver_findings
 from uro.enrich import enrich_fact_sheet
-from uro.models import FindingType, MarketSnapshot, PriceSeries, Severity
+from uro.models import FactSheet, FindingType, MarketSnapshot, PriceSeries, Severity
 
 
 def test_driver_calculation_and_text(fact_sheets):
@@ -165,7 +168,8 @@ def test_market_comparison_classification(fact_sheets, pos_ret, sector_ret, mark
     assert len(comps) == 1
     mkt = comps[0]
     assert mkt.id == "mkt-101"
-    assert f"decline is {expected_label}" in mkt.title
+    assert mkt.title.endswith(TITLE_BY_LABEL[expected_label])
+    assert "decline is mixed" not in mkt.title
     assert mkt.security_ids == [101]
 
 
@@ -236,3 +240,53 @@ def test_enrich_fact_sheet_with_drivers(fact_sheets):
     fs_enriched = enrich_fact_sheet(fs.model_copy(deep=True), market=snap)
     assert any(f.id.startswith("drv-") for f in fs_enriched.findings)
     assert fs_enriched.coverage.get("drivers") == "ok"
+
+
+def _lindt_snapshot() -> MarketSnapshot:
+    return MarketSnapshot(
+        source="live",
+        as_of=datetime(2026, 9, 19),
+        tickers={101: "LISN.SW"},
+        prices={
+            "LISN.SW": PriceSeries(ticker="LISN.SW", closes=[100.0, 90.0]),
+            "^SSMI": PriceSeries(ticker="^SSMI", closes=[100.0, 99.0]),
+        },
+    )
+
+
+def test_enrich_is_idempotent_and_leaves_engine_fact_sheet_untouched(fact_sheets):
+    """api.py cacht das Engine-FactSheet je Klient; jeder Klick auf Generate reichert erneut an."""
+    fs = fact_sheets["CASE-A01"].model_copy(deep=True)
+    before = [f.id for f in fs.findings]
+
+    first = enrich_fact_sheet(fs, market=_lindt_snapshot())
+    second = enrich_fact_sheet(fs, market=_lindt_snapshot())
+
+    assert [f.id for f in fs.findings] == before
+    assert Counter(f.id for f in first.findings) == Counter(f.id for f in second.findings)
+    assert max(Counter(f.id for f in second.findings).values()) == 1
+
+
+def test_market_cache_is_per_client(tmp_path, monkeypatch):
+    """Offline darf ein Klient nie die News und Kurse des zuletzt geladenen Klienten bekommen."""
+    monkeypatch.chdir(tmp_path)
+    market_mod._save_cache(_lindt_snapshot(), "CASE-A01")
+
+    assert market_mod._load_cache("CASE-B02") is None
+    cached = market_mod._load_cache("CASE-A01")
+    assert cached is not None and cached.source == "cache"
+
+
+def test_market_budget_is_enforced_when_yfinance_hangs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    def hanging(*args, **kwargs):
+        time.sleep(1.0)
+        return {}
+
+    monkeypatch.setattr(market_mod, "resolve_tickers", hanging)
+    t0 = time.perf_counter()
+    snap = market_mod.build_snapshot(FactSheet(client_ref="CASE-X"), budget_s=0.2)
+
+    assert time.perf_counter() - t0 < 0.8
+    assert snap.source == "unavailable"

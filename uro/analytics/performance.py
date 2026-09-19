@@ -198,7 +198,10 @@ def driver_findings(fs: FactSheet, market: MarketSnapshot | None) -> list[Findin
     d = date_str(market.as_of)
     driver_source = "yfinance 3-month closes × clients.json positions"
 
-    for sid, a, w, r, c in negatives:
+    selected = [(item, Severity.WARNING) for item in negatives] + [
+        (item, Severity.OPPORTUNITY) for item in positives
+    ]
+    for (sid, a, w, r, c), severity in selected:
         name = truncate(a["name"], 60)
         weight_val = num(w)
         ret_val = num(r)
@@ -207,35 +210,14 @@ def driver_findings(fs: FactSheet, market: MarketSnapshot | None) -> list[Findin
             Finding(
                 id=f"drv-{sid}",
                 type=FindingType.PERFORMANCE_DRIVER,
-                severity=Severity.WARNING,
+                severity=severity,
                 title=f"{name}: ≈ {pp(contrib_val)} contribution over the last 3 months",
                 detail=(
                     f"{name} ({pct(weight_val)} of client assets) {pct(ret_val, signed=True)} "
                     f"over the last 3 months (market data as of {d}). "
-                    "Approximation: current weight × price change, flows not included."
-                ),
-                numbers={"weight_pct": weight_val, "return_3m_pct": ret_val, "contribution_pp": contrib_val},
-                materiality_chf=round_chf(a["amount"]),
-                security_ids=[sid],
-                source=driver_source,
-            )
-        )
-
-    for sid, a, w, r, c in positives:
-        name = truncate(a["name"], 60)
-        weight_val = num(w)
-        ret_val = num(r)
-        contrib_val = num(c)
-        out.append(
-            Finding(
-                id=f"drv-{sid}",
-                type=FindingType.PERFORMANCE_DRIVER,
-                severity=Severity.OPPORTUNITY,
-                title=f"{name}: ≈ {pp(contrib_val)} contribution over the last 3 months",
-                detail=(
-                    f"{name} ({pct(weight_val)} of client assets) {pct(ret_val, signed=True)} "
-                    f"over the last 3 months (market data as of {d}). "
-                    "Approximation: current weight × price change, flows not included."
+                    # Kurse sind in Handelswährung (AAPL in USD), das Depot rechnet in CHF.
+                    "Approximation: current weight × price change in trading currency; "
+                    "cash flows and FX effects not included."
                 ),
                 numbers={"weight_pct": weight_val, "return_3m_pct": ret_val, "contribution_pp": contrib_val},
                 materiality_chf=round_chf(a["amount"]),
