@@ -107,6 +107,10 @@ ESG_RULE_KEYWORDS = ("sustainab", "esg", "nachhalt")
 SAA_OTHER_DIM_THRESHOLD_PP = 10.0
 SAA_MAGNITUDE_REF_PP = 15.0
 NO_STRATEGY_NAMES = {"No strategy"}  # Portfolios ohne echte SAA (29 von 57) — kein Soll-Ist-Vergleich
+# Mandatsart über SAA.InvestmentServiceId → InvestmentServices[].Name. Execution-only heisst: keine Eignungsprüfung
+# (FIDLEG Art. 13), die Regel-Engine meldet dort nie etwas (11 Klienten, 0 Verstösse). Vola über Profil ist dann
+# kein Verstoss, sondern ein Anlass, ein Beratungsgespräch bzw. -mandat anzubieten.
+EXECUTION_ONLY_SERVICE_NAMES = {"Execution only"}
 
 # Risikoprofil: Portfolio.Volatility gegen RiskProfiles[].MaxVola (der Pitch-Befund, CLAUDE.md §4)
 VOLA_ERROR_FACTOR = 1.2  # ab 20 % über dem Limit ERROR, darunter WARNING

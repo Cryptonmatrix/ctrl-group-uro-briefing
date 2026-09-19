@@ -20,12 +20,14 @@ from collections import defaultdict
 from typing import Any
 
 from uro.analytics.format import num, pct, slug, truncate
-from uro.config import NO_STRATEGY_NAMES, VOLA_ERROR_FACTOR
+from uro.config import EXECUTION_ONLY_SERVICE_NAMES, NO_STRATEGY_NAMES, VOLA_ERROR_FACTOR
 from uro.ingest import ReferenceIndex, get, lst
 from uro.models import Finding, FindingType, Severity
 
 SOURCE_VIOLATIONS = "clients.json › SuitabilityViolations"
 SOURCE_RISK = "clients.json › Portfolios[].Volatility vs reference.json › RiskProfiles[].MaxVola"
+# Titel-Präfix der Execution-only-Variante; llm/fallback.py leitet daraus die Action "Beratungsgespräch anbieten" ab.
+EXECUTION_ONLY_TITLE_PREFIX = "Execution-only portfolio"
 
 # Nur diese ViolationPath-Felder tragen "Anteil vs. Limit" als Brüche (gemessen über alle 180 Verstösse,
 # docs/data-notes.md §8). PositionIsSecurityRuleField (bool), RegulatoryClientType, Knowledge- und
@@ -158,11 +160,18 @@ def violation_findings(
 
 
 def risk_profile_findings(
-    client: dict[str, Any], portfolio: dict[str, Any], profile: dict[str, Any] | None, aum: float
+    client: dict[str, Any],
+    portfolio: dict[str, Any],
+    profile: dict[str, Any] | None,
+    aum: float,
+    mandate: str | None = None,
 ) -> list[Finding]:
     """Portfolio.Volatility gegen RiskProfiles[].MaxVola — unabhängig von der Regel-Engine.
 
     Fehlt das Profil oder die Volatilität, ist das ein DATA_GAP-Finding, kein Fehler.
+    `mandate` ist die Mandatsart (InvestmentServices[].Name). Bei Execution-only gibt es keine Eignungsprüfung,
+    die Regel-Engine schweigt dort absichtlich: Die Überschreitung wird deshalb nicht als Verstoss gemeldet,
+    sondern als Anlass, dem Kunden ein Beratungsgespräch anzubieten (WARNING statt ERROR).
     """
     pnr = str(get(portfolio, "PortfolioNr", "?"))
     vola = get(portfolio, "Volatility")
@@ -205,6 +214,31 @@ def risk_profile_findings(
     vola_codes = _volatility_rule_codes(client, get(portfolio, "PortfolioId"))
     profile_name = str(get(profile, "Name", "risk profile"))
     strategy = get(portfolio, "StrategyName")
+    numbers = {"volatility_pct": vola_pct, "max_volatility_pct": max_pct, "overshoot_pct": over_pct}
+
+    if mandate in EXECUTION_ONLY_SERVICE_NAMES and not vola_codes:
+        return [
+            Finding(
+                id=f"risk-breach-{pnr}",  # ID bleibt stabil (Demo, Chips, Tests), auch wenn es kein Verstoss ist
+                type=FindingType.RISK_PROFILE,
+                severity=Severity.WARNING,
+                title=(
+                    f"{EXECUTION_ONLY_TITLE_PREFIX} {pnr}: volatility {pct(vola_pct)} is above "
+                    f"the {pct(max_pct)} limit of {profile_name}"
+                ),
+                detail=(
+                    f"Portfolio {pnr} runs at {pct(vola_pct)} volatility against the {pct(max_pct)} ceiling of the "
+                    f"client's own risk profile — {pct(over_pct)} above it. It is an execution-only mandate: the bank "
+                    "performs no suitability check there, so this is not a compliance breach and the rule engine "
+                    "does not report it. It is a reason to offer the client an advisory conversation (for example "
+                    "an advisory mandate) about whether the portfolio risk still fits the profile."
+                ),
+                numbers=numbers,
+                portfolio_nr=pnr,
+                materiality_chf=aum,
+                source=SOURCE_RISK,
+            )
+        ]
 
     notes = []
     if strategy in NO_STRATEGY_NAMES:
@@ -232,7 +266,7 @@ def risk_profile_findings(
                 f"Portfolio {pnr} runs at {pct(vola_pct)} volatility against a {pct(max_pct)} ceiling — "
                 f"{pct(over_pct)} above the limit. " + " ".join(notes)
             ),
-            numbers={"volatility_pct": vola_pct, "max_volatility_pct": max_pct, "overshoot_pct": over_pct},
+            numbers=numbers,
             portfolio_nr=pnr,
             related_ids=[f"viol-{slug(c)}" for c in vola_codes],
             materiality_chf=aum,

@@ -10,6 +10,7 @@ Garantiert, dass der Briefing-Endpoint IMMER HTTP 200 mit einem validen Briefing
 
 from __future__ import annotations
 
+from uro.analytics.suitability import EXECUTION_ONLY_TITLE_PREFIX
 from uro.models import (
     ActionKind,
     Briefing,
@@ -35,6 +36,15 @@ def _map_action(finding: Finding) -> NextBestAction:
             finding_ids=[finding.id],
             priority=1,
             kind=ActionKind.RESOLVE_VIOLATION,
+        )
+    if ft == FindingType.RISK_PROFILE and finding.title.startswith(EXECUTION_ONLY_TITLE_PREFIX):
+        # Execution-only: kein Verstoss, sondern Verkaufsanlass (analytics/suitability.py)
+        return NextBestAction(
+            action="Offer the client an advisory conversation on portfolio risk vs. risk profile",
+            rationale="Execution-only mandate above the client's own volatility limit: no breach, but a reason to propose advice.",
+            finding_ids=[finding.id],
+            priority=1,
+            kind=ActionKind.CLIENT_FOLLOW_UP,
         )
     if ft == FindingType.RISK_PROFILE:
         return NextBestAction(

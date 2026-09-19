@@ -258,7 +258,10 @@ def build_fact_sheet(client: dict[str, Any], reference: dict[str, Any]) -> FactS
             since,
             last_contact,
         )
-        findings += _run(coverage, "risk_profile", risk_profile_findings, client, clean, profile, p_aum)
+        mandate = ref.investment_service_name(get(clean, "StrategicAssetAllocationId"))
+        findings += _run(
+            coverage, "risk_profile", risk_profile_findings, client, clean, profile, p_aum, mandate
+        )
 
     coverage.setdefault("portfolios", "no_data")
     coverage.setdefault("allocation", "no_data")
