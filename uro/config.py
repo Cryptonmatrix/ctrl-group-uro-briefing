@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 4000  # reicht für ≤ 260 Wörter strukturiertes JSON
     llm_max_retries: int = 1
 
+    # Tier 2 Fallback: Google Gemini
+    gemini_api_key: str | None = None
+    google_api_key: str | None = None
+    gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_timeout_s: float = 15.0
+
     data_dir: str = "data"
     log_dir: str = "logs"
 
