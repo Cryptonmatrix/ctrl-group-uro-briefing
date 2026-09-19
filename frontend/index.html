@@ -586,9 +586,16 @@ $('#uploadinput').onchange = async e => {
     if(!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
 
     await boot();
-    const ref = (data.refs && data.refs[0]) || (data.added_client_refs||[])[0];
+    // Eine Datei kann einen Klienten NEU anlegen oder einen bestehenden ersetzen.
+    // Die Jury-Testdateien tun teils das Zweite (CASE-047 existiert bereits) —
+    // dann ist added=0, und ohne diesen Fallback passiert sichtbar nichts.
+    const neu = data.added_client_refs || data.refs || [];
+    const ersetzt = data.updated_client_refs || [];
+    const ref = neu[0] || ersetzt[0];
     if(ref) await select(ref);
-    btn.textContent = `${data.added} geladen`;
+    const n = neu.length + ersetzt.length;
+    btn.textContent = ersetzt.length && !neu.length
+      ? `${ersetzt.length} aktualisiert` : `${n} geladen`;
     setTimeout(()=>{ btn.textContent = label; }, 3000);
   }catch(err){
     btn.textContent = label;
