@@ -94,6 +94,10 @@ button{font:inherit;cursor:pointer}
 .src{font-size:11px;padding:4px 10px;border:1px solid var(--line);border-radius:12px;
   color:var(--muted);background:#fafafa;transition:all .25s}
 .src.done{border-color:var(--green);color:var(--green);background:#f2fbf6}
+.src.none{opacity:.45;border-style:dashed}
+.src.none::before{content:"– "}
+.wc{font-variant-numeric:tabular-nums}
+.wc.over{color:var(--uro-red);font-weight:600}
 .src.done::before{content:"✓ "}
 .phase{font-size:11.5px;color:var(--muted);margin-top:9px;font-variant-numeric:tabular-nums}
 .bar{height:2px;background:#eee;overflow:hidden}
@@ -412,7 +416,10 @@ $('#gen').onclick = async () => {
   $('#loader').classList.add('on');
   $('#bout').innerHTML = '';
   const srcs = document.querySelectorAll('.src');
-  srcs.forEach((s,i)=>setTimeout(()=>s.classList.add('done'), 220+i*260));
+  // Keine Zeitschaltung mehr. Die Chips leuchten erst, wenn die Quelle
+  // nachweislich etwas beigetragen hat — sichtbar an den Finding-IDs, die
+  // das fertige Briefing zitiert.
+  srcs.forEach(s=>s.classList.remove('done','none'));
 
   // Ohne laufende Anzeige wirken 20 Sekunden wie ein Absturz.
   const t0 = Date.now();
@@ -444,8 +451,59 @@ $('#gen').onclick = async () => {
   renderBriefing(data);
 };
 
+// Welche Finding-Praefixe zu welcher Datenquelle gehoeren. Steht so auch im
+// Backend (uro/models.py, Finding-ID-Schema).
+const SOURCE_PREFIXES = {
+  0: ['perf','conc','saa','risk','viol','liq','esg','drv','gap','profile'],
+  1: ['note','intent','prop','rej','item'],
+  2: ['news','mkt'],
+  3: ['hv'],
+};
+
+// Welcher coverage-Schluessel gehoert zu welchem Chip — fuer den Tooltip,
+// damit "keine Daten" nicht mit "nicht abgefragt" verwechselt wird.
+const SOURCE_COVERAGE = {0:['positions','performance','saa','concentration'],
+                         1:['notes','intents','proposals'],
+                         2:['market','drivers'], 3:['house_view']};
+
+function markSources(briefing, coverage){
+  const ids = new Set();
+  briefing.sections.forEach(s=>s.statements.forEach(st=>
+    (st.finding_ids||[]).forEach(i=>ids.add(i))));
+  (briefing.next_best_actions||[]).forEach(a=>
+    (a.finding_ids||[]).forEach(i=>ids.add(i)));
+
+  document.querySelectorAll('.src[data-s]').forEach(chip=>{
+    const prefixes = SOURCE_PREFIXES[chip.dataset.s] || [];
+    const hit = [...ids].some(id => prefixes.some(p => id.startsWith(p)));
+    chip.classList.toggle('done', hit);
+    chip.classList.toggle('none', !hit);
+    if(hit){
+      chip.title = 'Diese Quelle ist im Briefing belegt';
+    }else{
+      const keys = SOURCE_COVERAGE[chip.dataset.s] || [];
+      const states = keys.map(k => (coverage||{})[k]).filter(Boolean);
+      const fehler = states.find(s => s !== 'ok' && s !== 'no_data');
+      chip.title = fehler
+        ? `Quelle nicht erreichbar (${fehler}) — das Briefing kam trotzdem`
+        : states.includes('ok')
+          ? 'Quelle abgefragt, aber nichts Relevantes für diesen Klienten'
+          : 'Für diesen Klienten liegen hier keine Daten vor';
+    }
+  });
+}
+
+function countWords(b){
+  const parts = [b.headline];
+  b.sections.forEach(s=>s.statements.forEach(st=>parts.push(st.text)));
+  (b.likely_questions||[]).forEach(q=>parts.push(q.question, q.answer_hint));
+  (b.next_best_actions||[]).forEach(a=>parts.push(a.action, a.rationale));
+  return parts.filter(Boolean).join(' ').trim().split(/\s+/).length;
+}
+
 function renderBriefing(d){
   const b = d.briefing;
+  markSources(b, d.fact_sheet?.coverage);
   const badge = $('#modebadge');
   if(badge){
     badge.className = 'modebadge m-' + (d.mode||'ai');
@@ -472,7 +530,8 @@ function renderBriefing(d){
       <span><i style="background:var(--violet)"></i>House View</span>
       <span><i style="background:var(--green)"></i>Empfehlung</span>
       <span><i style="background:var(--uro-red)"></i>Risiko</span>
-      <span style="margin-left:auto">${d.generation_seconds}s · ${b.word_count||''} 
+      <span style="margin-left:auto">${d.generation_seconds}s · <span class="wc ${countWords(b)>220?'over':''}"
+        title="Ziel sind 150-220 Wörter für 60 Sekunden Lesezeit">${countWords(b)} Wörter</span> 
         ${d.issues.length?`· <b style="color:var(--uro-red)">${d.issues.length} Aussagen verworfen</b>`
                          :'· <b style="color:var(--green)">Validator sauber</b>'}</span>
     </div>`;
