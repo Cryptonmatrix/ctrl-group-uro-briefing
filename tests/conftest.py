@@ -17,6 +17,23 @@ from uro.ingest import ReferenceIndex, load_clients, load_reference
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+@pytest.fixture(autouse=True)
+def _no_real_llm_keys(monkeypatch):
+    """Tests rufen nie die echte API: Schlüssel aus .env und Umgebung werden für jeden Test ausgeblendet.
+
+    Ohne das schickten die Failover-Tests echte Requests, sobald ein Key in .env steht (kostet, dauert,
+    und "Anthropic fehlt" war dann nicht mehr simuliert). Tests, die einen Key brauchen, setzen ihn selbst.
+    """
+    from uro.config import get_settings
+
+    settings = get_settings()
+    for name in ("anthropic_api_key", "gemini_api_key", "google_api_key"):
+        if hasattr(settings, name):
+            monkeypatch.setattr(settings, name, None)
+    for var in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+
+
 @pytest.fixture(scope="session")
 def mini_reference() -> dict:
     return load_reference(FIXTURES / "mini_reference.json")
