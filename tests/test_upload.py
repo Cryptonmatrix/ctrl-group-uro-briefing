@@ -131,3 +131,123 @@ def test_upload_pii_stripped(store: DataStore) -> None:
     rec = store.record("TEST-PII")
     assert rec is not None
     assert rec.get("_DisplayName") == "Hans Muster"
+
+
+# 5. Referenz: Security 101 mit neuem Name und neue Security 106; SuitabilityRules Dedupe
+def test_upload_reference_securities_and_rules(store: DataStore) -> None:
+    raw_ref = json.loads((FIXTURES / "mini_reference.json").read_text(encoding="utf-8"))
+    sec101 = copy.deepcopy(raw_ref["Securities"][0])
+    assert sec101["Id"] == 101
+    sec101["Name"] = "Lindt Spruengli AG Neu"
+
+    sec106 = copy.deepcopy(sec101)
+    sec106["Id"] = 106
+    sec106["Isin"] = "CH0010570799"
+    sec106["Name"] = "New Security 106"
+
+    rule_dup = {
+        "Id": 1,
+        "RuleCode": "Cluster risk of a single financial instrument",
+        "Description": "Aktualisierte Beschreibung",
+        "Level": 2,
+        "IsIndividual": False,
+    }
+
+    res = store.merge(
+        {"Securities": [sec101, sec106], "SuitabilityRules": [rule_dup]},
+        "ref_update.json",
+    )
+    assert res.reference_merged is True
+    assert res.errors == []
+    assert store.ref.security(106)["Name"] == "New Security 106"
+    assert store.ref.security(101)["Name"] == "Lindt Spruengli AG Neu"
+
+    rules = [
+        r
+        for r in store.reference.get("SuitabilityRules", [])
+        if r.get("RuleCode") == "Cluster risk of a single financial instrument"
+    ]
+    assert len(rules) == 1
+    assert rules[0].get("Description") == "Aktualisierte Beschreibung"
+
+
+# 6. Look-through: Zwei neue Zeilen für Fonds 103 mit Weight 60 und 40
+def test_upload_reference_lookthrough_replaces_all_fund_rows(store: DataStore) -> None:
+    row1 = {
+        "FundSecurityId": 103,
+        "FundSecurityIsin": "LU0000000001",
+        "AssetClassName": "Equities North America",
+        "CurrencyGroupName": "US-Dollar",
+        "CountryGroupName": "Equities North America",
+        "IndustryName": "Information Technology",
+        "Weight": 60.0,
+    }
+    row2 = {
+        "FundSecurityId": 103,
+        "FundSecurityIsin": "LU0000000001",
+        "AssetClassName": "Equities Switzerland",
+        "CurrencyGroupName": "Swiss francs",
+        "CountryGroupName": "Equities Switzerland",
+        "IndustryName": "Raw materials",
+        "Weight": 40.0,
+    }
+
+    res = store.merge({"FundUnbundlingMappings": [row1, row2]}, "lookthrough.json")
+    assert res.reference_merged is True
+    assert res.errors == []
+
+    fund103_rows = store.ref.unbundling_by_fund_id[103]
+    assert len(fund103_rows) == 2
+    assert sum(r["Weight"] for r in fund103_rows) == pytest.approx(1.0)
+
+    raw_rows = [r for r in store.reference["FundUnbundlingMappings"] if r["FundSecurityId"] == 103]
+    assert len(raw_rows) == 2
+    assert {r["Weight"] for r in raw_rows} == {60.0, 40.0}
+
+
+# 7. Veralteter Index: Client mit Position auf Security 999, dann Referenz mit 999 nachladen
+def test_upload_reference_updates_cached_index_and_fact_sheets(store: DataStore) -> None:
+    raw_clients = _load_raw_mini_clients()
+    client = copy.deepcopy(raw_clients[0])
+    client["ClientRef"] = "TEST-002"
+    client["ClientId"] = 99002
+    port = client["Portfolios"][0]
+    port["SecurityPositions"].append(
+        {
+            "SecurityId": 999,
+            "Isin": "CH9999999999",
+            "Valor": "9999999",
+            "SecurityName": "Unknown Corp",
+            "Quantity": 10.0,
+            "PricePerUnit": 100.0,
+            "Currency": "CHF",
+            "TotalAmountInPortfolioCurrency": 1000.0,
+            "PortfolioValuePercentage": 0.01,
+            "MarginalContributionToRisk": 0.0,
+            "ContributionVolatility": 0.0,
+        }
+    )
+
+    res_client = store.merge([client], "client_999.json")
+    assert res_client.added_client_refs == ["TEST-002"]
+
+    fs_before = store.fact_sheet("TEST-002")
+    assert fs_before is not None
+    pos_before = next(p for port in fs_before.portfolios for p in port.positions if p.security_id == 999)
+    assert pos_before.saa_asset_class is None
+
+    # Nun Referenz mit Security 999 hochladen
+    raw_ref = json.loads((FIXTURES / "mini_reference.json").read_text(encoding="utf-8"))
+    sec999 = copy.deepcopy(raw_ref["Securities"][0])
+    sec999["Id"] = 999
+    sec999["Isin"] = "CH9999999999"
+    sec999["Name"] = "Known Corp 999"
+    sec999["SAA_AssetClassName"] = "Shares"
+
+    res_ref = store.merge({"Securities": [sec999]}, "ref_999.json")
+    assert res_ref.reference_merged is True
+
+    fs_after = store.fact_sheet("TEST-002")
+    assert fs_after is not None
+    pos_after = next(p for port in fs_after.portfolios for p in port.positions if p.security_id == 999)
+    assert pos_after.saa_asset_class == "Shares"
