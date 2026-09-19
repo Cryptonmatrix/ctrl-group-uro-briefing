@@ -165,20 +165,42 @@ gestellt wird.
 
 ## 6. Zahlen für die Slides
 
-Nach dem Batch-Lauf eintragen — leere Platzhalter sind auf der Bühne peinlicher als fehlende Slides.
+Gemessen am 19.09.2026 über **alle 47 Klienten**, mit echten Modellaufrufen
+(`uv run python -m eval.run_all --briefings --workers 5`).
 
-- Briefings erzeugt: `__ / __`
-- Unbelegte Zahlen nach Validierung: `__`
-- Durchschnittliche Generierungszeit: `__ s`
-- Längste Generierungszeit: `__ s`
-- Durchschnittliche Briefing-Länge: `__ Wörter` (Ziel: 150–220)
-- Klienten mit Datenlücken, die sauber behandelt wurden: `__`
+| | |
+|---|---|
+| Fact Sheets erzeugt | **47 / 47** |
+| Briefings erzeugt | **47 / 47** |
+| Befunde insgesamt | 805 (Schnitt 17,1 je Klient) |
+| Klienten mit Datenlücken | 10 — sauber behandelt, kein Absturz |
+| Engine-Zeit | Schnitt **2,9 ms**, max 10,1 ms |
+| Briefing-Zeit | Schnitt **13,4 s**, max 27,4 s |
+| Briefing-Länge | Schnitt **209 Wörter**, max 220, keines darüber |
+| Unbelegte Zahlen | **5 gefunden und entfernt** |
+| Modus | 44× direkt, 3× nach Wiederholung, 0× Fallback |
+| Gesamtdauer | 130 s für alle 47 |
 
-Aus dem Datensatz, als Beleg dafür, dass wir die Daten wirklich gelesen haben:
+**Die wichtigste Zeile richtig formulieren.** „5 unbelegte Zahlen" klingt nach einem
+Mangel, ist aber das Gegenteil: Der Validator hat in 47 Briefings fünf Aussagen gefunden,
+deren Zahlen nicht durch ein Finding gedeckt waren, und sie **entfernt**. Keine davon hat
+den Berater erreicht.
+
+> „Unser Validator prüft jede Zahl gegen das Fact Sheet. Über alle 47 Klienten hat er
+> fünf Aussagen verworfen. Was beim Berater ankommt, ist zu hundert Prozent belegt."
+
+**Zur Wiederholung:** Dreimal hat der erste Modellversuch die Prüfung nicht bestanden, das
+System hat selbstständig einen zweiten angefordert und der hielt. Das erklärt auch die
+27 Sekunden im Maximum.
+
+**Zur Robustheit, ungeplant belegt:** In der Nacht vor dem Pitch ist mitten im Testlauf das
+API-Guthaben ausgegangen. Das System hat trotzdem 47 von 47 Briefings ausgeliefert —
+regelbasiert, in 0,4 Sekunden, korrekt gekennzeichnet. Kein Berater stand vor einem leeren
+Bildschirm. Das ist kein Gedankenexperiment, das ist gemessen.
+
+**Aus dem Datensatz**, als Beleg dafür, dass wir die Daten wirklich gelesen haben:
 47 Klienten · 57 Portfolios · 504 Instrumente · 180 Suitability-Verstösse bei 26 Klienten ·
 206 Vorschläge · 153 Beraternotizen · 48'101 Fonds-Look-through-Zeilen.
-
----
 
 ## 7. Demo-Drehbuch
 
