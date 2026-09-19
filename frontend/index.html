@@ -188,6 +188,7 @@ button{font:inherit;cursor:pointer}
     <button class="action">Analyse</button>
     <button class="action">Kundeninformation</button>
     <button class="action" id="report" disabled title="Erst ein Briefing erzeugen">Protokoll</button>
+    <button class="action" id="emailbtn" disabled title="Erst ein Briefing erzeugen">Follow-up E-Mail</button>
     <button class="action primary" id="gen" disabled>Generate Briefing</button>
   </div>
 </div>
@@ -237,7 +238,7 @@ async function boot(){
 }
 
 async function select(ref){
-  current = ref;
+  window.current = current = ref;
   document.querySelectorAll('.cli').forEach(b=>b.classList.toggle('on', b.dataset.ref===ref));
   const d = await (await fetch(`/api/clients/${encodeURIComponent(ref)}/facts`)).json();
   if(current !== ref) return;   // inzwischen anderer Klient gewählt: überholte Antwort verwerfen
@@ -251,6 +252,7 @@ async function select(ref){
   $('#gen').disabled = false;
   $('#report').disabled = true;
   $('#report').title = 'Erst ein Briefing erzeugen';
+  const eb = $('#emailbtn'); if(eb){ eb.disabled = true; eb.title = 'Erst ein Briefing erzeugen'; }
   renderFacts(d);
 }
 
@@ -520,6 +522,11 @@ function renderBriefing(d){
   const rep = $('#report');
   rep.disabled = false;
   rep.title = 'Gesprächsprotokoll öffnen und drucken';
+  const eb = $('#emailbtn');
+  if(eb){
+    eb.disabled = false;
+    eb.title = 'Follow-up E-Mail & Sales Guidance öffnen';
+  }
   const badge = $('#modebadge');
   if(badge){
     badge.className = 'modebadge m-' + (d.mode||'ai');
@@ -597,5 +604,6 @@ $('#uploadinput').onchange = async e => {
 boot();
 </script>
 <script src="/frontend/chat.js"></script>
+<script src="/frontend/email_modal.js"></script>
 </body>
 </html>

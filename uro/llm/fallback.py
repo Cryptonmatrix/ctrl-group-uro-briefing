@@ -14,11 +14,14 @@ from uro.analytics.suitability import EXECUTION_ONLY_TITLE_PREFIX
 from uro.models import (
     ActionKind,
     Briefing,
+    ClientFacingEmail,
     FactSheet,
     Finding,
     FindingType,
+    FollowUpEmailDraft,
     LikelyQuestion,
     NextBestAction,
+    SalesOrientedNotes,
     Section,
     Severity,
     Statement,
@@ -273,3 +276,184 @@ def template_briefing(fs: FactSheet) -> Briefing:
         likely_questions=questions[:2],
         next_best_actions=actions[:3],
     )
+
+
+def template_followup_email(
+    fs: FactSheet,
+    briefing: Briefing | None = None,
+    lang: str = "de",
+    display_name: str = "",
+) -> FollowUpEmailDraft:
+    """Deterministically generates a post-call follow-up email and internal sales guidance.
+
+    Zero external LLM calls or internet connection needed. 100% grounded in FactSheet.
+    """
+    name = display_name.strip() or fs.client_ref
+    findings = fs.findings
+    top_findings = fs.top_findings(3)
+    referenced_ids: list[str] = []
+
+    # 1. Client Facing Email
+    if lang == "de":
+        subject = f"Zusammenfassung unseres Gesprächs & nächste Schritte — Portfolio {fs.client_ref}"
+        if fs.is_company:
+            salutation = f"Sehr geehrte Damen und Herren ({name}),"
+        else:
+            salutation = f"Sehr geehrte/r Frau/Herr {name}," if " " in name else f"Sehr geehrte/r {name},"
+        intro = (
+            "herzlichen Dank für das konstruktive und offene Gespräch über die aktuelle Entwicklung "
+            "Ihres Vermögens und die strategische Ausrichtung Ihres Portfolios."
+        )
+    else:
+        subject = f"Summary of our conversation & next steps — Portfolio {fs.client_ref}"
+        salutation = f"Dear Ladies and Gentlemen ({name})," if fs.is_company else f"Dear {name},"
+        intro = (
+            "thank you very much for our open and constructive discussion regarding the current "
+            "development and strategic positioning of your portfolio."
+        )
+
+    # Portfolio Recap points
+    recap_points: list[str] = []
+    for f in top_findings:
+        referenced_ids.append(f.id)
+        if lang == "de":
+            recap_points.append(_cut(f"{f.title}: {f.detail}", 220))
+        else:
+            recap_points.append(_cut(f"{f.title}: {f.detail}", 220))
+
+    if not recap_points:
+        if lang == "de":
+            recap_points.append(f"Gesamtvermögen: CHF {fs.total_aum_chf:,.0f} im vereinbarten Mandat geführt.")
+        else:
+            recap_points.append(f"Total AuM: CHF {fs.total_aum_chf:,.0f} managed within the agreed mandate.")
+
+    # Agreed Next Steps
+    next_steps: list[str] = []
+    if briefing and briefing.next_best_actions:
+        for a in briefing.next_best_actions[:3]:
+            referenced_ids.extend(a.finding_ids)
+            next_steps.append(f"{a.action} ({a.rationale})")
+    elif findings:
+        for f in findings:
+            if _actionable(f):
+                act = _map_action(f)
+                referenced_ids.extend(act.finding_ids)
+                next_steps.append(f"{act.action} ({act.rationale})")
+                if len(next_steps) >= 2:
+                    break
+
+    if not next_steps:
+        if lang == "de":
+            next_steps.append("Gemeinsame Überprüfung der Vermögensaufteilung und Feinjustierung der Anlagepositionen.")
+        else:
+            next_steps.append("Joint review of portfolio asset allocation and fine-tuning of existing positions.")
+
+    if lang == "de":
+        closing = (
+            "Für allfällige Fragen oder weitere Präzisierungen stehe ich Ihnen jederzeit gerne zur Verfügung. "
+            "Wir werden die besprochenen Massnahmen zeitnah für Sie vorbereiten.\n\n"
+            "Mit freundlichen Grüssen,\n"
+            "Ihr Vermögensberatungsteam"
+        )
+    else:
+        closing = (
+            "Please do not hesitate to contact me should you have any questions or require further details. "
+            "We will prepare the agreed steps for you promptly.\n\n"
+            "Best regards,\n"
+            "Your Wealth Management Team"
+        )
+
+    email = ClientFacingEmail(
+        subject=subject,
+        salutation=salutation,
+        intro=intro,
+        portfolio_recap=recap_points,
+        agreed_next_steps=next_steps,
+        closing=closing,
+        finding_ids=sorted(set(referenced_ids)),
+    )
+
+    # 2. Sales Oriented Notes (Advisor Facing)
+    cross_sell: list[str] = []
+    if fs.total_liquidity_chf > 100_000:
+        if lang == "de":
+            cross_sell.append(
+                f"Hohe Liquiditätsquote: CHF {fs.total_liquidity_chf:,.0f} ungebunden. "
+                "Konkretes Re-Investment in House-View-Fokusse oder Geldmarktinstrumente vorschlagen."
+            )
+        else:
+            cross_sell.append(
+                f"High cash balance: CHF {fs.total_liquidity_chf:,.0f} unallocated. "
+                "Propose re-investment into CIO House View focus themes or yield enhancement."
+            )
+
+    hv_findings = [f for f in findings if f.type == FindingType.HOUSE_VIEW and f.severity == Severity.OPPORTUNITY]
+    for hv in hv_findings[:2]:
+        cross_sell.append(f"House View Opportunität: {hv.title} — {hv.detail}")
+
+    if fs.open_proposals > 0:
+        if lang == "de":
+            cross_sell.append(f"{fs.open_proposals} offene Anlagevorschläge im System: Zeitnahe Zeichnung forcieren.")
+        else:
+            cross_sell.append(f"{fs.open_proposals} pending investment proposal(s): follow up for client execution.")
+
+    if not cross_sell:
+        if lang == "de":
+            cross_sell.append("Regelmässige Mandatsprüfung zur Erweiterung der Beratungsvereinbarung nutzen.")
+        else:
+            cross_sell.append("Utilize regular portfolio review to evaluate advisory mandate extension.")
+
+    risk_actions: list[str] = []
+    if fs.max_volatility:
+        for p in fs.portfolios:
+            if p.volatility is not None and p.volatility > fs.max_volatility:
+                if lang == "de":
+                    risk_actions.append(
+                        f"Volatilität ({p.volatility*100:.1f}%) liegt über Kundenlimit ({fs.max_volatility*100:.1f}%): "
+                        "Profilaktualisierung oder defensive Umschichtung erforderlich."
+                    )
+                else:
+                    risk_actions.append(
+                        f"Volatility ({p.volatility*100:.1f}%) exceeds client limit ({fs.max_volatility*100:.1f}%): "
+                        "Profile update or defensive rebalancing required."
+                    )
+
+    violations = [f for f in findings if f.type == FindingType.SUITABILITY_VIOLATION]
+    if violations:
+        if lang == "de":
+            risk_actions.append(f"{len(violations)} Eignungsverstoss/-verstösse aktiv — Bereinigung vor Monatsultimo.")
+        else:
+            risk_actions.append(f"{len(violations)} suitability violation(s) active — remediation prior to month end.")
+
+    if not risk_actions:
+        if lang == "de":
+            risk_actions.append("Keine kritischen Risikoverstösse aktiv. Reguläre Portfolio-Überwachung.")
+        else:
+            risk_actions.append("No active compliance breaches. Standard risk monitoring.")
+
+    if lang == "de":
+        deadline_hint = "Binnen 5 Bankwerktagen zur Überprüfung der Umsetzung"
+        actions_str = ", ".join(next_steps[:2]) if next_steps else "Portfolio-Besprechung"
+        crm_log = (
+            f"Telefonberatung mit {name} ({fs.client_ref}) durchgeführt. "
+            f"Themen: Portfolioentwicklung und Allokation. Vereinbart: {actions_str}. "
+            f"Follow-up terminiert."
+        )
+    else:
+        deadline_hint = "Within 5 business days to verify implementation"
+        actions_str = ", ".join(next_steps[:2]) if next_steps else "Portfolio review"
+        crm_log = (
+            f"Advisory call completed with {name} ({fs.client_ref}). "
+            f"Topics: Portfolio development and allocation. Agreed: {actions_str}. "
+            f"Follow-up scheduled."
+        )
+
+    sales_notes = SalesOrientedNotes(
+        cross_sell_opportunities=cross_sell,
+        suitability_or_risk_actions=risk_actions,
+        next_contact_date_hint=deadline_hint,
+        crm_log_entry=crm_log,
+    )
+
+    return FollowUpEmailDraft(email=email, sales_notes=sales_notes)
+

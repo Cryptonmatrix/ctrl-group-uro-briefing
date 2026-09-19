@@ -454,3 +454,70 @@ class UploadResult(BaseModel):
     updated_client_refs: list[str] = Field(default_factory=list)
     reference_merged: bool = False
     errors: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Post-Call Follow-up Email & Sales Guidance Models
+# ---------------------------------------------------------------------------
+
+
+class ClientFacingEmail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    subject: str = Field(description="Prägnante Betreffzeile für die Nachfass-E-Mail")
+    salutation: str = Field(description="Persönliche Anrede (z.B. 'Sehr geehrte/r...', 'Dear...')")
+    intro: str = Field(description="Höflicher Dank für das Gespräch und kurzer Kontext")
+    portfolio_recap: list[str] = Field(
+        default_factory=list,
+        description="2-3 verständliche Kernpunkte zur Portfolioentwicklung und Treibern, basierend auf Befunden",
+    )
+    agreed_next_steps: list[str] = Field(
+        default_factory=list,
+        description="Konkret vereinbarte Massnahmen und nächste Schritte für Kunde und Berater",
+    )
+    closing: str = Field(description="Wertschätzende Grussformel und Ausblick")
+    finding_ids: list[str] = Field(
+        default_factory=list, description="IDs aller referenzierten Befunde"
+    )
+
+
+class SalesOrientedNotes(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cross_sell_opportunities: list[str] = Field(
+        default_factory=list,
+        description="Konkrete Vertriebs- und Ertragschancen (z. B. Cash anlegen, House-View-Titel, Mandatsausbau)",
+    )
+    suitability_or_risk_actions: list[str] = Field(
+        default_factory=list,
+        description="Regulatorische Massnahmen, Risikolimiten (z. B. Vola-Überschreitung, Profil-Aktualisierung)",
+    )
+    next_contact_date_hint: str = Field(
+        default="", description="Empfohlenes Zeitfenster/Frist für die nächste Kontaktaufnahme"
+    )
+    crm_log_entry: str = Field(
+        default="", description="Prägnanter Einzeiler für das Bank-CRM (Ergebnis des Gesprächs & To-dos)"
+    )
+
+
+class FollowUpEmailDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: ClientFacingEmail
+    sales_notes: SalesOrientedNotes
+
+
+class FollowUpEmailRequest(BaseModel):
+    language: Literal["de", "en"] = "de"
+
+
+class FollowUpEmailResult(BaseModel):
+    client_ref: str
+    display_name: str = ""
+    email: ClientFacingEmail
+    sales_notes: SalesOrientedNotes
+    issues: list[ValidationIssue] = Field(default_factory=list)
+    mode: Literal["ai", "ai_gemini", "fallback"] = "ai"
+    language: Literal["de", "en"] = "de"
+    generated_at: datetime = Field(default_factory=datetime.now)
+

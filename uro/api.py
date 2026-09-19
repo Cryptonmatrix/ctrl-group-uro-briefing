@@ -21,7 +21,12 @@ from fastapi.staticfiles import StaticFiles
 
 from uro.analytics import build_fact_sheet
 from uro.ingest import display_name, get
-from uro.models import BriefingResult, ChatRequest
+from uro.models import (
+    BriefingResult,
+    ChatRequest,
+    FollowUpEmailRequest,
+    FollowUpEmailResult,
+)
 from uro.store import DataStore
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -281,6 +286,48 @@ def client_report(ref: str) -> str:
         mode=_modes.get(ref, "ai"),
     )
     return render_report(result)
+ 
+ 
+@app.post("/api/clients/{ref}/followup-email")
+def client_followup_email(
+    ref: str, request: FollowUpEmailRequest | None = None
+) -> dict[str, Any]:
+    """Generiert die automatische Post-Call Kunden-E-Mail und interne Sales-Notizen.
+
+    Setzt ein erzeugtes Briefing voraus (analog zum Protokoll) oder greift auf das FactSheet zu.
+    """
+    from uro.llm.email_followup import generate_followup_email
+
+    lang = request.language if request else "de"
+    briefing = _briefings.get(ref)
+    if briefing is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Für diesen Klienten wurde noch kein Briefing erzeugt. "
+            "Zuerst „Generate Briefing“, dann die Follow-up E-Mail.",
+        )
+
+    record = _find(ref)
+    display_name = record.get("_DisplayName", ref)
+    fs = _enriched.get(ref) or _facts_cached(ref)
+
+    draft, mode, issues = generate_followup_email(
+        fact_sheet=fs,
+        briefing=briefing,
+        lang=lang,
+        display_name=display_name,
+    )
+
+    result = FollowUpEmailResult(
+        client_ref=ref,
+        display_name=display_name,
+        email=draft.email,
+        sales_notes=draft.sales_notes,
+        issues=issues,
+        mode=mode,
+        language=lang,
+    )
+    return result.model_dump(mode="json")
 
 
 @app.post("/api/reset")

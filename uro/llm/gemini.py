@@ -19,8 +19,15 @@ import httpx
 
 from uro.config import get_settings
 from uro.llm.client import LLMInvalid, LLMUnavailable, log_llm
-from uro.llm.prompts import SYSTEM_PROMPT, render_fact_sheet
-from uro.models import Briefing, FactSheet
+from uro.llm.prompts import (
+    CHAT_SYSTEM_PROMPT,
+    EMAIL_SYSTEM_PROMPT_DE,
+    EMAIL_SYSTEM_PROMPT_EN,
+    SYSTEM_PROMPT,
+    render_email_context,
+    render_fact_sheet,
+)
+from uro.models import Briefing, FactSheet, FollowUpEmailDraft
 
 logger = logging.getLogger(__name__)
 
@@ -188,3 +195,67 @@ def ask_chat_gemini(context_str: str, question: str, history: list[dict] | None 
     except Exception as exc:
         logger.warning("Gemini chat failed: %s", exc)
         raise LLMUnavailable(f"Gemini chat unavailable: {exc}") from exc
+
+
+def get_gemini_email_schema() -> dict[str, Any]:
+    """Generates an OpenAPI 3.0 schema for FollowUpEmailDraft strictly compatible with Google Gemini."""
+    raw = FollowUpEmailDraft.model_json_schema()
+    defs = raw.get("$defs", {})
+    schema = _clean_for_gemini(raw, defs)
+    schema.pop("$defs", None)
+    return schema
+
+
+def generate_email_gemini(
+    fact_sheet: FactSheet,
+    briefing: Briefing | None = None,
+    lang: str = "de",
+) -> FollowUpEmailDraft:
+    """Generates a structured FollowUpEmailDraft using Google Gemini with native JSON schema."""
+    api_key = get_gemini_api_key()
+    settings = get_settings()
+
+    user_text = render_email_context(fact_sheet, briefing)
+    system_prompt = EMAIL_SYSTEM_PROMPT_DE if lang == "de" else EMAIL_SYSTEM_PROMPT_EN
+    model = settings.gemini_model
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+    payload = {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+        "generationConfig": {
+            "response_mime_type": "application/json",
+            "response_schema": get_gemini_email_schema(),
+            "temperature": 0.2,
+        },
+    }
+
+    try:
+        with httpx.Client(timeout=settings.gemini_timeout_s) as client:
+            resp = client.post(url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+
+        candidates = data.get("candidates") or []
+        if not candidates:
+            raise LLMInvalid(f"Gemini returned no candidates for email: {data}")
+
+        first_part = candidates[0].get("content", {}).get("parts", [{}])[0]
+        text = first_part.get("text")
+        if not text:
+            raise LLMInvalid("Gemini returned empty text for email.")
+
+        parsed_json = json.loads(text)
+        draft = FollowUpEmailDraft.model_validate(parsed_json)
+        log_llm("email_gemini", fact_sheet.client_ref, {"model": model, "lang": lang}, draft)
+        return draft
+    except httpx.HTTPStatusError as exc:
+        logger.warning("Gemini HTTP error on email (%s): %s", exc.response.status_code, exc.response.text[:300])
+        raise LLMUnavailable(
+            f"Gemini API returned status {exc.response.status_code}: {exc.response.text[:100]}"
+        ) from exc
+    except Exception as exc:
+        logger.warning("Gemini email generation failed: %s", exc)
+        raise LLMUnavailable(f"Gemini email generation failed: {exc}") from exc
+

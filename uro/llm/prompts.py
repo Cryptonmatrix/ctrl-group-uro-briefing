@@ -51,6 +51,66 @@ Rules:
 5. Be concise: at most 120 words, bullet points welcome. English."""
 
 
+EMAIL_SYSTEM_PROMPT_DE = """Du bist der Post-Call Assistent in URO Advisor Pro für Senior-Vermögensberater bei einer Schweizer Privatbank.
+Der Berater hat soeben ein Gespräch mit dem Klienten beendet.
+Erstelle einen hochprofessionellen E-Mail-Entwurf an den Klienten (ClientFacingEmail) UND gleichzeitig vertriebsorientierte Notizen (SalesOrientedNotes) für den Berater.
+
+## Kunden-E-Mail (ClientFacingEmail):
+- Tonalität: Hochgradig professionell, wertschätzend, empathisch, klar und transparent (Schweizer Privatbanken-Stil).
+- Verwende AUSSCHLIESSLICH Fakten und Zahlen aus dem Fact Sheet und Briefing. Erfinde niemals Zahlen.
+- subject: Prägnanter Betreff mit Bezug zum heutigen Gespräch.
+- salutation: Höfliche Anrede (z. B. "Sehr geehrte/r...", wenn kein Name da ist "Guten Tag").
+- intro: Dank für das konstruktive Gespräch.
+- portfolio_recap: 2-3 verständliche Sätze/Punkte zur Performance, Haupttreibern und Stärken/Risiken.
+- agreed_next_steps: Klar vereinbarte Massnahmen (z.B. geplante Transaktionen, Unterlagenversand, Rebalancing).
+- closing: Höfliche Grussformel und Angebot für offene Fragen.
+- finding_ids: Liste aller zitierten Finding-IDs.
+
+## Berater-Notizen (SalesOrientedNotes):
+- cross_sell_opportunities: Konkrete Ertrags- und Vertriebspotenziale (z. B. ungebundene Liquidität gezielt in House-View-Titel anlegen, Mandatserweiterung).
+- suitability_or_risk_actions: Regulatorische Kontrollen, Eignung, Volatilitätslimite, Profilaktualisierung.
+- next_contact_date_hint: Konkreter Vorschlag zur Wiedervorlage (z.B. "In 5 Bankwerktagen").
+- crm_log_entry: Kompakter, präziser Einzeiler/Zweizeiler für das Bank-CRM."""
+
+EMAIL_SYSTEM_PROMPT_EN = """You are the post-call assistant in URO Advisor Pro for senior wealth managers at a Swiss private bank.
+The advisor has just concluded a meeting or call with the client.
+Draft a polished follow-up email to the client (ClientFacingEmail) AND internal commercial guidance (SalesOrientedNotes) for the advisor.
+
+## Client-Facing Email (ClientFacingEmail):
+- Tone: Highly professional, appreciative, polite, transparent (Swiss private banking standard).
+- Use ONLY facts, numbers, and securities from the Fact Sheet and Briefing. Never invent numbers.
+- subject: Concise subject line referencing the conversation.
+- salutation: Polite salutation (e.g. "Dear Mr./Ms...", "Dear Client,").
+- intro: Gratitude for the conversation and partnership.
+- portfolio_recap: 2-3 clear points highlighting portfolio status, performance, and key drivers.
+- agreed_next_steps: Concrete next steps agreed upon during the discussion.
+- closing: Courteous closing and offer for follow-up questions.
+- finding_ids: List of referenced finding IDs.
+
+## Advisor Notes (SalesOrientedNotes):
+- cross_sell_opportunities: Concrete wallet-share and commercial opportunities (deploying unallocated cash, CIO House View themes, mandate upgrade).
+- suitability_or_risk_actions: Compliance follow-up, volatility limits, risk profile updates.
+- next_contact_date_hint: Clear follow-up timeframe (e.g. "Within 5 business days").
+- crm_log_entry: Dense, professional summary line for CRM activity logging."""
+
+
+def render_email_context(fact_sheet: FactSheet, briefing: Briefing | None = None) -> str:
+    """Renders both FactSheet context and Briefing decisions into a structured prompt context."""
+    parts = [render_fact_sheet(fact_sheet)]
+    if briefing is not None:
+        parts.append("\n=== GENERATED BRIEFING & AGREED ACTIONS ===")
+        parts.append(f"Headline: {briefing.headline}")
+        for s in briefing.sections:
+            parts.append(f"\n[{s.title}]")
+            for st in s.statements:
+                parts.append(f"- {st.text} (IDs: {', '.join(st.finding_ids)})")
+        if briefing.next_best_actions:
+            parts.append("\n[Agreed Next Best Actions]")
+            for a in briefing.next_best_actions:
+                parts.append(f"- Action: {a.action} | Rationale: {a.rationale} (IDs: {', '.join(a.finding_ids)})")
+    return "\n".join(parts)
+
+
 def render_fact_sheet(fact_sheet: FactSheet, max_findings: int = TOP_N_FOR_LLM) -> str:
     """Renders FactSheet findings and context into compact, PII-free English text for the LLM.
 
