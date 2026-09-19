@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import time
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -27,18 +28,24 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 FRONTEND = ROOT / "frontend"
 
-app = FastAPI(title="URO Briefing Assistant")
-
 _clients: list[dict[str, Any]] = []
 _reference: dict[str, Any] = {}
 
 
-@app.on_event("startup")
-def _load() -> None:
-    """Einmal beim Start. 17 MB JSON will man nicht pro Request parsen."""
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Einmal beim Start. 17 MB JSON will man nicht pro Request parsen.
+
+    Bewusst lifespan statt @app.on_event: on_event ist veraltet und hing mit
+    Starlette 1.6 beim Start, ohne eine Zeile zu loggen.
+    """
     global _clients, _reference
     _clients = load_clients(DATA_DIR / "clients.json")
     _reference = load_reference(DATA_DIR / "reference.json")
+    yield
+
+
+app = FastAPI(title="URO Briefing Assistant", lifespan=lifespan)
 
 
 def _find(ref: str) -> dict[str, Any]:
@@ -93,10 +100,29 @@ def client_briefing(ref: str) -> dict[str, Any]:
             detail="ANTHROPIC_API_KEY fehlt. Die Engine laeuft, der Briefing-Text braucht einen Schlüssel.",
         )
     from uro.llm.briefing import generate_briefing
+    from uro.llm.transport import (
+        LLMAuthError,
+        LLMBadRequest,
+        LLMError,
+        LLMRateLimit,
+        LLMServerError,
+        LLMTimeout,
+    )
     from uro.llm.validator import validate
 
     t0 = time.perf_counter()
-    briefing, issues = validate(generate_briefing(fs), fs)
+    try:
+        briefing, issues = validate(generate_briefing(fs), fs)
+    except LLMTimeout as exc:
+        raise HTTPException(status_code=504, detail=f"{exc} Die Befunde der Engine stehen "
+                            "unten — sie stammen aus echten Daten und sind unabhängig vom Modell.") from None
+    except LLMAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from None
+    except LLMRateLimit as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from None
+    except (LLMServerError, LLMBadRequest, LLMError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+
     result = BriefingResult(
         client_ref=ref, briefing=briefing, fact_sheet=fs, issues=issues,
         generation_seconds=round(time.perf_counter() - t0, 2),
