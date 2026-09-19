@@ -79,27 +79,16 @@ def main(argv: list[str]) -> int:
         print("  Key in .env eintragen, dann: set -a && source .env && set +a")
         return 1
 
-    import anthropic
-
     from uro.llm.briefing import generate_briefing
+    from uro.llm.transport import LLMError
     from uro.llm.validator import validate
 
     t1 = time.perf_counter()
     try:
         briefing = generate_briefing(fs)
-    except anthropic.APITimeoutError:
-        print(f"\n  {COLORS['risk']}Zeitüberschreitung nach "
-              f"{time.perf_counter() - t1:.0f}s — das Modell hat nicht geantwortet.{RESET}")
-        return 1
-    except anthropic.AuthenticationError:
-        print(f"\n  {COLORS['risk']}API-Schlüssel abgelehnt. Ist er einem Workspace "
-              f"zugeordnet?{RESET}")
-        return 1
-    except anthropic.APIStatusError as exc:
-        print(f"\n  {COLORS['risk']}API-Fehler {exc.status_code}: {exc.message}{RESET}")
-        return 1
-    except anthropic.APIConnectionError as exc:
-        print(f"\n  {COLORS['risk']}Keine Verbindung zur API: {exc}{RESET}")
+    except LLMError as exc:
+        print(f"\n  {COLORS['risk']}{type(exc).__name__} nach "
+              f"{time.perf_counter() - t1:.0f}s: {exc}{RESET}")
         return 1
 
     briefing, issues = validate(briefing, fs)
