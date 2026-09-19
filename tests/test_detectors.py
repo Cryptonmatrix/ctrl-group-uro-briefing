@@ -63,11 +63,19 @@ def test_saa_other_dimensions_use_target_threshold(fact_sheets):
     fs = fact_sheets["CASE-B02"]
     usd = _by_id(fs, "saa-currencygroup-us-dollar")
     assert usd.severity == Severity.INFO
-    assert usd.numbers["actual_pct"] == 49.0 and usd.numbers["target_pct"] == 30.5 and usd.numbers["deviation_pp"] == 18.5
+    assert (
+        usd.numbers["actual_pct"] == 49.0
+        and usd.numbers["target_pct"] == 30.5
+        and usd.numbers["deviation_pp"] == 18.5
+    )
     na = _by_id(fs, "saa-countrygroup-north-america")
     assert "of equities" in na.title and "share of the equity allocation" in na.detail
     it = _by_id(fs, "saa-industry-information-technology")
-    assert it.numbers["actual_pct"] == 31.1 and it.numbers["target_pct"] == 10.9 and it.numbers["deviation_pp"] == 20.2
+    assert (
+        it.numbers["actual_pct"] == 31.1
+        and it.numbers["target_pct"] == 10.9
+        and it.numbers["deviation_pp"] == 20.2
+    )
     # Betrag auf Basis des Aktienanteils: 20.2 pp × 90 % × CHF 500,000 = CHF 90,900
     assert it.numbers["amount_chf"] == 90900.0
     # Euro: 0 % vs 4 % → unter der 10-pp-Schwelle
@@ -77,8 +85,14 @@ def test_saa_other_dimensions_use_target_threshold(fact_sheets):
 def test_saa_finding_suppressed_when_bank_already_flags_it(mini_clients, mini_reference):
     client = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-B02"))
     client["SuitabilityViolations"].append(
-        {"Id": 4, "RuleCode": 'Overweight in the equity sector "Information Technology"', "RuleDescription": "Übergewicht",
-         "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 2}
+        {
+            "Id": 4,
+            "RuleCode": 'Overweight in the equity sector "Information Technology"',
+            "RuleDescription": "Übergewicht",
+            "ErrorLevel": 1,
+            "Severity": "Warning",
+            "PortfolioId": 2,
+        }
     )
     fs = build_fact_sheet(client, mini_reference)
     ids = {f.id for f in fs.findings}
@@ -90,8 +104,22 @@ def test_saa_finding_suppressed_when_bank_already_flags_it(mini_clients, mini_re
 def test_currency_deviation_suppressed_when_bank_flags_currency_rules(mini_clients, mini_reference):
     client = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-B02"))
     client["SuitabilityViolations"] += [
-        {"Id": 5, "RuleCode": "Foreign currency cluster risk USD", "RuleDescription": "x", "ErrorLevel": 2, "Severity": "Error", "PortfolioId": 2},
-        {"Id": 6, "RuleCode": "Foreign currency exposure exceeds 50%", "RuleDescription": "y", "ErrorLevel": 2, "Severity": "Error", "PortfolioId": 2},
+        {
+            "Id": 5,
+            "RuleCode": "Foreign currency cluster risk USD",
+            "RuleDescription": "x",
+            "ErrorLevel": 2,
+            "Severity": "Error",
+            "PortfolioId": 2,
+        },
+        {
+            "Id": 6,
+            "RuleCode": "Foreign currency exposure exceeds 50%",
+            "RuleDescription": "y",
+            "ErrorLevel": 2,
+            "Severity": "Error",
+            "PortfolioId": 2,
+        },
     ]
     ids = {f.id for f in build_fact_sheet(client, mini_reference).findings}
     assert "saa-currencygroup-us-dollar" not in ids  # Bank meldet USD-Klumpen
@@ -218,7 +246,9 @@ def test_profile_review_due(fact_sheets):
     fs = fact_sheets["CASE-B02"]  # profiliert 2023-06-01, data_as_of 2026-09-18 → 39 Monate
     item = _by_id(fs, "item-profile-review-due")
     assert item.numbers["months_since_profiling"] == 39.0 and "39 months" in item.title
-    assert "item-profile-review-due" not in {f.id for f in fact_sheets["CASE-A01"].findings}  # 2025-07 → 14 Monate
+    assert "item-profile-review-due" not in {
+        f.id for f in fact_sheets["CASE-A01"].findings
+    }  # 2025-07 → 14 Monate
 
 
 # --- Scoring -------------------------------------------------------------------------------
@@ -239,7 +269,9 @@ def test_scoring_boosts_are_transparent(fact_sheets):
 def test_conservative_client_boosts_risk_findings(mini_clients, mini_reference):
     client = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
     client["RiskProfileId"], client["RiskProfileName"] = 15, "Anlageprofil 3"  # RiskLevel 3 → konservativ
-    client["ClientNotes"] = [{"Note": "Worried about market swings.", "CreatedByDateUTC": "2026-09-01T00:00:00Z"}]
+    client["ClientNotes"] = [
+        {"Note": "Worried about market swings.", "CreatedByDateUTC": "2026-09-01T00:00:00Z"}
+    ]
     fs = build_fact_sheet(client, mini_reference)
     breach = _by_id(fs, "risk-breach-CASE-A01-01")
     assert "risk-averse client" in breach.boost_reasons

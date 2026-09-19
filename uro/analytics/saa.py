@@ -36,14 +36,21 @@ SAA_DIMENSIONS = {
 }
 EQUITY_RELATIVE = {"CountryGroup", "Industry"}
 EQUITY_CLASS = "Shares"
-LABELS = {"AssetClass": "", "CurrencyGroup": "Currency ", "CountryGroup": "Equity region ", "Industry": "Equity sector "}
+LABELS = {
+    "AssetClass": "",
+    "CurrencyGroup": "Currency ",
+    "CountryGroup": "Equity region ",
+    "Industry": "Equity sector ",
+}
 _QUOTED = re.compile(r'"([^"]+)"')
 # Währungsregeln der Bank nennen ISO-Codes ("Foreign currency cluster risk USD"), die SAA Gruppennamen
 ISO_TO_CURRENCY_GROUP = {"USD": "US-Dollar", "EUR": "Euro", "CHF": "Swiss francs"}
 HOME_CURRENCY_GROUP = {"CHF": "Swiss francs", "EUR": "Euro", "USD": "US-Dollar"}
 
 
-def _bank_flagged_categories(client: dict[str, Any], portfolio_nr_by_id: dict[Any, str]) -> dict[str, set[str]]:
+def _bank_flagged_categories(
+    client: dict[str, Any], portfolio_nr_by_id: dict[Any, str]
+) -> dict[str, set[str]]:
     """Kategorien je Portfolio, die die Regel-Engine der Bank schon meldet — dort melden wir nicht doppelt.
 
     'Overweight in the equity sector "Industrials"' → Industrials
@@ -166,7 +173,9 @@ def saa_findings(fs: FactSheet, client: dict[str, Any], portfolio_nr_by_id: dict
                 severity = Severity.WARNING
                 basis_value = pf.aum_chf
             else:
-                if abs(dev) < SAA_OTHER_DIM_THRESHOLD_PP or line.category in flagged.get(pf.portfolio_nr, set()):
+                if abs(dev) < SAA_OTHER_DIM_THRESHOLD_PP or line.category in flagged.get(
+                    pf.portfolio_nr, set()
+                ):
                     continue
                 severity = Severity.INFO
                 basis_value = pf.aum_chf * (eq_pct / 100 if line.dimension in EQUITY_RELATIVE else 1.0)

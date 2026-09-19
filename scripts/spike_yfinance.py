@@ -7,10 +7,38 @@ from uro.enrich.news import fetch_news
 from uro.models import PositionFact
 
 TEST_POSITIONS = [
-    PositionFact(security_id=9108, name="Chocoladefabriken Lindt & Sprüngli", isin="CH0012221716", currency="CHF", amount_chf=100000.0, weight_pct=73.4),
-    PositionFact(security_id=8921, name="Sensirion Holding AG", isin="CH0406705126", currency="CHF", amount_chf=30000.0, weight_pct=24.0),
-    PositionFact(security_id=1001, name="Nestlé S.A.", isin="CH0038863350", currency="CHF", amount_chf=50000.0, weight_pct=15.0),
-    PositionFact(security_id=1002, name="ASML Holding NV", isin="NL0010273215", currency="EUR", amount_chf=20000.0, weight_pct=10.0),
+    PositionFact(
+        security_id=9108,
+        name="Chocoladefabriken Lindt & Sprüngli",
+        isin="CH0012221716",
+        currency="CHF",
+        amount_chf=100000.0,
+        weight_pct=73.4,
+    ),
+    PositionFact(
+        security_id=8921,
+        name="Sensirion Holding AG",
+        isin="CH0406705126",
+        currency="CHF",
+        amount_chf=30000.0,
+        weight_pct=24.0,
+    ),
+    PositionFact(
+        security_id=1001,
+        name="Nestlé S.A.",
+        isin="CH0038863350",
+        currency="CHF",
+        amount_chf=50000.0,
+        weight_pct=15.0,
+    ),
+    PositionFact(
+        security_id=1002,
+        name="ASML Holding NV",
+        isin="NL0010273215",
+        currency="EUR",
+        amount_chf=20000.0,
+        weight_pct=10.0,
+    ),
 ]
 
 

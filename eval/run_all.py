@@ -45,6 +45,7 @@ def main(argv: list[str]) -> int:
             if with_briefings:
                 from uro.llm.briefing import generate_briefing
                 from uro.llm.validator import validate
+
                 t1 = time.perf_counter()
                 briefing, issues = validate(generate_briefing(fs), fs)
                 brief_s.append(time.perf_counter() - t1)
@@ -58,13 +59,15 @@ def main(argv: list[str]) -> int:
     print(f"Fact Sheets erzeugt:       {ok} / {len(clients)}")
     print(f"Findings insgesamt:        {finding_total}  (Schnitt {finding_total / max(ok, 1):.1f} je Klient)")
     print(f"Klienten mit Datenlücken: {gap_clients}  (sauber behandelt, kein Absturz)")
-    print(f"Engine-Zeit:               Schnitt {statistics.mean(engine_ms):.0f} ms, "
-          f"max {max(engine_ms):.0f} ms")
+    print(
+        f"Engine-Zeit:               Schnitt {statistics.mean(engine_ms):.0f} ms, max {max(engine_ms):.0f} ms"
+    )
     if with_briefings:
         print(f"Briefings erzeugt:         {len(brief_s)} / {ok}")
         print(f"Unbelegte Aussagen:        {issue_count}")
-        print(f"Briefing-Zeit:             Schnitt {statistics.mean(brief_s):.1f} s, "
-              f"max {max(brief_s):.1f} s")
+        print(
+            f"Briefing-Zeit:             Schnitt {statistics.mean(brief_s):.1f} s, max {max(brief_s):.1f} s"
+        )
         print(f"Briefing-Laenge:           Schnitt {statistics.mean(words):.0f} Wörter (Ziel 150-220)")
     for ref, err in failures:
         print(f"  FEHLER {ref}: {err}")

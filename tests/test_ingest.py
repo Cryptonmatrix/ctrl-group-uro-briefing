@@ -51,7 +51,9 @@ def test_extract_clients_accepts_array_wrapper_and_single_object():
 
 def test_load_clients_wrapper_file(tmp_path):
     path = tmp_path / "upload.json"
-    path.write_text(json.dumps({"clients": [{"ClientRef": "CASE-U1", "ClientId": 7, "FirstName": "A", "LastName": "B"}]}))
+    path.write_text(
+        json.dumps({"clients": [{"ClientRef": "CASE-U1", "ClientId": 7, "FirstName": "A", "LastName": "B"}]})
+    )
     clients = load_clients(path)
     assert [c["ClientRef"] for c in clients] == ["CASE-U1"]
     assert "FirstName" not in clients[0]  # strip_pii lief
@@ -79,7 +81,12 @@ def test_strip_pii_handles_company_without_names(mini_clients):
 
 
 def test_strip_pii_is_recursive_and_does_not_mutate_input():
-    raw = {"ClientRef": "CASE-Z", "FirstName": "X", "LastName": "Y", "Portfolios": [{"AccountPositions": [{"IBAN": "CH93 0000", "Currency": "CHF"}]}]}
+    raw = {
+        "ClientRef": "CASE-Z",
+        "FirstName": "X",
+        "LastName": "Y",
+        "Portfolios": [{"AccountPositions": [{"IBAN": "CH93 0000", "Currency": "CHF"}]}],
+    }
     out = strip_pii(raw)
     assert "IBAN" not in out["Portfolios"][0]["AccountPositions"][0]
     assert raw["Portfolios"][0]["AccountPositions"][0]["IBAN"] == "CH93 0000"

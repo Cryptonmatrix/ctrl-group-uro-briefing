@@ -76,7 +76,12 @@ CONCENTRATION = {
 CONCENTRATION_SINGLE_ERROR = 0.25  # Einzeltitel ab 25 % des Vermögens: ERROR statt WARNING
 CONCENTRATION_MAX_SINGLE_FINDINGS = 3
 EXPOSURE_TOP_N = 10  # FactSheet.exposures je Dimension (für Chat und UI)
-HOME_COUNTRY_GROUP = {"CHF": "Switzerland", "EUR": "Rest of Europe", "USD": "North America", "GBP": "Great Britain"}
+HOME_COUNTRY_GROUP = {
+    "CHF": "Switzerland",
+    "EUR": "Rest of Europe",
+    "USD": "North America",
+    "GBP": "Great Britain",
+}
 REPORTING_CURRENCY_GROUP = {"CHF": "Swiss francs", "USD": "US-Dollar", "EUR": "Euro"}
 IGNORED_REGION_BUCKETS = {"Others", "Not classified"}
 

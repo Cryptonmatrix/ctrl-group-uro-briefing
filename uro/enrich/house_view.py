@@ -45,17 +45,26 @@ def house_view_findings(
 
     # Recommended securities pool for buy suggestions
     rec_securities = []
-    if reference and "Securities" in reference:
-        for s in reference["Securities"]:
-            if s.get("InRecommendationList") and s.get("EndOfDayPrice"):
-                rec_securities.append(s)
+    if reference:
+        if isinstance(reference, dict) and "Securities" in reference:
+            for s in reference["Securities"]:
+                if s.get("InRecommendationList") and s.get("EndOfDayPrice"):
+                    rec_securities.append(s)
+        elif hasattr(reference, "securities_by_id"):
+            rec_ids = getattr(reference, "recommended_security_ids", set())
+            for sid, s in reference.securities_by_id.items():
+                if sid in rec_ids and s.get("EndOfDayPrice"):
+                    rec_securities.append(s)
 
     for p in fact_sheet.portfolios:
         # Check explicit allocation lines if present
         allocation_lines = p.allocation
 
-        # If allocation lines are empty, compute asset class weights from positions
-        if not allocation_lines and p.positions:
+        # If allocation lines are empty or lack targets (e.g. "No strategy" SAA), compute asset class weights from positions
+        has_targets = (
+            any(line.target_pct is not None for line in allocation_lines) if allocation_lines else False
+        )
+        if (not allocation_lines or not has_targets) and p.positions:
             total_amt = sum(pos.amount_chf for pos in p.positions) or 1.0
             cat_weights: dict[str, float] = {}
             for pos in p.positions:
@@ -72,8 +81,7 @@ def house_view_findings(
                     self.deviation_pp = self.actual_pct - self.target_pct
 
             allocation_lines = [  # type: ignore[assignment]
-                _MockLine("AssetClass", cat, (amt / total_amt) * 100)
-                for cat, amt in cat_weights.items()
+                _MockLine("AssetClass", cat, (amt / total_amt) * 100) for cat, amt in cat_weights.items()
             ]
 
         for line in allocation_lines:

@@ -1,8 +1,8 @@
 """Gemeinsame Fixtures: drei handgebaute Klienten, die die echten Fallen abdecken.
 
-  CASE-A01  Vola 20 % gegen Limit 12 %, "No strategy", 2 Titel + Cash, Notizen (Pension, ESG, risikotolerant)
-  CASE-B02  echte SAA, Fonds mit Look-through, gebündelte + überschriebene Verstöße, offene/abgelehnte Proposals, ESG "Yes"
-  CASE-C03  Firma ohne Risikoprofil, nur Cash (inkl. BTC), null-Felder, zu kurze Historie
+CASE-A01  Vola 20 % gegen Limit 12 %, "No strategy", 2 Titel + Cash, Notizen (Pension, ESG, risikotolerant)
+CASE-B02  echte SAA, Fonds mit Look-through, gebündelte + überschriebene Verstöße, offene/abgelehnte Proposals, ESG "Yes"
+CASE-C03  Firma ohne Risikoprofil, nur Cash (inkl. BTC), null-Felder, zu kurze Historie
 """
 
 from __future__ import annotations

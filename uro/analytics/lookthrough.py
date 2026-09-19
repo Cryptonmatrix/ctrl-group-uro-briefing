@@ -131,7 +131,9 @@ def exposures(
     return {dim: dict(cats) for dim, cats in out.items()}
 
 
-def contributors(positions: Iterable[PositionFact], ref: ReferenceIndex, dim: str, category: str) -> list[int]:
+def contributors(
+    positions: Iterable[PositionFact], ref: ReferenceIndex, dim: str, category: str
+) -> list[int]:
     """SecurityIds, die zu einer Kategorie beitragen — direkt oder über Fonds-Zeilen."""
     ids: set[int] = set()
     for p in positions:

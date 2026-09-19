@@ -147,7 +147,9 @@ def template_briefing(fs: FactSheet) -> Briefing:
     )
     s3_statements: list[Statement] = []
     for f in outlook_findings[:3]:
-        st_type = StatementType.HOUSE_VIEW if f.type == FindingType.HOUSE_VIEW else StatementType.RECOMMENDATION
+        st_type = (
+            StatementType.HOUSE_VIEW if f.type == FindingType.HOUSE_VIEW else StatementType.RECOMMENDATION
+        )
         s3_statements.append(make_stmt(f, st_type))
 
     if not s3_statements and findings:

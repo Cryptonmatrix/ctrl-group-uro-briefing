@@ -98,9 +98,7 @@ def parse_date(value: Any) -> date | None:
 def client_history_as_of(client: dict[str, Any]) -> date | None:
     """Letztes PerformanceHistory-Datum über alle Portfolios → Anker für Renditen."""
     dates = [
-        parse_date(get(h, "Date"))
-        for p in lst(client, "Portfolios")
-        for h in lst(p, "PerformanceHistory")
+        parse_date(get(h, "Date")) for p in lst(client, "Portfolios") for h in lst(p, "PerformanceHistory")
     ]
     known = [d for d in dates if d]
     return max(known) if known else None
@@ -111,7 +109,11 @@ def client_data_as_of(client: dict[str, Any]) -> date | None:
     candidates: list[Any] = [get(client, "ProfilingDateUtc")]
     candidates += [get(n, "CreatedByDateUTC") for n in lst(client, "ClientNotes")]
     for p in lst(client, "Proposals"):
-        candidates += [get(p, "ProposedDateUTC"), get(p, "FinalizedDateUTC"), get(p, "TransactionsSubmittedDateUTC")]
+        candidates += [
+            get(p, "ProposedDateUTC"),
+            get(p, "FinalizedDateUTC"),
+            get(p, "TransactionsSubmittedDateUTC"),
+        ]
     candidates += [get(v, "LastViolatedDateUTC") for v in lst(client, "SuitabilityViolations")]
     for p in lst(client, "Portfolios"):
         candidates.append(get(p, "FactoryDateUtc"))
@@ -151,7 +153,9 @@ def load_clients(path: str | Path) -> list[dict[str, Any]]:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     clients = extract_clients(data)
     if clients is None:
-        raise ValueError(f"{path}: not recognised as client data (expected an array of clients, a wrapper object or one client)")
+        raise ValueError(
+            f"{path}: not recognised as client data (expected an array of clients, a wrapper object or one client)"
+        )
     return [strip_pii(c) for c in clients]
 
 
@@ -236,7 +240,9 @@ class ReferenceIndex:
         self.securities_by_isin: dict[str, list[dict[str, Any]]] = dict(by_isin)
 
         self.saa_by_id = index_by(lst(reference, "StrategicAssetAllocations"), "Id")
-        self.rules_by_code: dict[str, dict[str, Any]] = index_by(lst(reference, "SuitabilityRules"), "RuleCode")
+        self.rules_by_code: dict[str, dict[str, Any]] = index_by(
+            lst(reference, "SuitabilityRules"), "RuleCode"
+        )
         self.risk_profiles_by_id = index_by(lst(reference, "RiskProfiles"), "Id")
         self.esg_profiles_by_id = index_by(lst(reference, "EsgProfiles"), "Id")
         self.strategies_by_id = index_by(lst(reference, "Strategies"), "Id")
@@ -289,8 +295,10 @@ class ReferenceIndex:
 _INDEX_CACHE: dict[int, tuple[dict[str, Any], ReferenceIndex]] = {}
 
 
-def reference_index(reference: dict[str, Any]) -> ReferenceIndex:
+def reference_index(reference: dict[str, Any] | ReferenceIndex) -> ReferenceIndex:
     """Gecachter ReferenceIndex pro Referenz-Objekt (48'101 Look-through-Zeilen baut man nicht 47-mal)."""
+    if isinstance(reference, ReferenceIndex):
+        return reference
     key = id(reference)
     cached = _INDEX_CACHE.get(key)
     if cached is not None and cached[0] is reference:
