@@ -148,15 +148,23 @@ def extract_clients(data: Any) -> list[dict[str, Any]] | None:
     return None
 
 
+def clients_from_payload(data: Any) -> list[dict[str, Any]] | None:
+    """Erkennt Klientendaten (Array, Wrapper, Einzelobjekt) und entfernt PII. None = keine Klientendatei."""
+    clients = extract_clients(data)
+    if clients is None:
+        return None
+    return [strip_pii(c) for c in clients]
+
+
 def load_clients(path: str | Path) -> list[dict[str, Any]]:
     """Lädt eine Datei in der Form von clients.json (Array, Wrapper oder Einzelobjekt). Beliebiger Dateiname."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
-    clients = extract_clients(data)
+    clients = clients_from_payload(data)
     if clients is None:
         raise ValueError(
             f"{path}: not recognised as client data (expected an array of clients, a wrapper object or one client)"
         )
-    return [strip_pii(c) for c in clients]
+    return clients
 
 
 def load_reference(path: str | Path) -> dict[str, Any]:
