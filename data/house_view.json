@@ -1,0 +1,169 @@
+{
+  "as_of": "2026-09-01",
+  "source": "Based on publicly available Swiss Private Bank CIO Outlook, September 2026 (mock input)",
+  "summary": "Positive on quality bonds and Swiss equities, selective on technology multiples, underweight idle liquidity.",
+  "views": [
+    {
+      "dimension": "AssetClass",
+      "category": "Bonds",
+      "stance": "overweight",
+      "rationale": "Attractive yield levels with rate cuts expected across central banks."
+    },
+    {
+      "dimension": "AssetClass",
+      "category": "Shares",
+      "stance": "neutral",
+      "rationale": "Solid corporate earnings balanced against elevated valuation multiples."
+    },
+    {
+      "dimension": "AssetClass",
+      "category": "Liquidity",
+      "stance": "underweight",
+      "rationale": "Cash yields declining following recent central bank rate cuts."
+    },
+    {
+      "dimension": "AssetClass",
+      "category": "Specialties andCommodities",
+      "stance": "overweight",
+      "rationale": "Gold provides an effective hedge against ongoing geopolitical volatility."
+    },
+    {
+      "dimension": "AssetClass",
+      "category": "Real estate",
+      "stance": "neutral",
+      "rationale": "Stabilizing cap rates offset by selective commercial vacancy pressures."
+    },
+    {
+      "dimension": "CurrencyGroup",
+      "category": "Swiss francs",
+      "stance": "overweight",
+      "rationale": "High quality safe-haven profile and low inflation volatility."
+    },
+    {
+      "dimension": "CurrencyGroup",
+      "category": "US-Dollar",
+      "stance": "underweight",
+      "rationale": "Expected narrowing of interest rate differentials vs peers."
+    },
+    {
+      "dimension": "CurrencyGroup",
+      "category": "Euro",
+      "stance": "neutral",
+      "rationale": "Modest growth profile balanced by attractive corporate yields."
+    },
+    {
+      "dimension": "CurrencyGroup",
+      "category": "Andere",
+      "stance": "neutral",
+      "rationale": "Selective emerging market currency exposure."
+    },
+    {
+      "dimension": "CountryGroup",
+      "category": "Switzerland",
+      "stance": "overweight",
+      "rationale": "Defensive market composition and robust corporate balance sheets."
+    },
+    {
+      "dimension": "CountryGroup",
+      "category": "North America",
+      "stance": "neutral",
+      "rationale": "High structural quality but premium valuation multiples."
+    },
+    {
+      "dimension": "CountryGroup",
+      "category": "Rest of Europe",
+      "stance": "neutral",
+      "rationale": "Inexpensive valuations counterbalanced by sluggish growth."
+    },
+    {
+      "dimension": "CountryGroup",
+      "category": "Asia/Pacific (ex Japan)",
+      "stance": "overweight",
+      "rationale": "Structural semiconductor tailwinds and attractive dividend yields."
+    },
+    {
+      "dimension": "CountryGroup",
+      "category": "Japan",
+      "stance": "neutral",
+      "rationale": "Corporate governance reforms offset by currency fluctuations."
+    },
+    {
+      "dimension": "CountryGroup",
+      "category": "Great Britain",
+      "stance": "neutral",
+      "rationale": "High dividend yields and low multiples."
+    },
+    {
+      "dimension": "CountryGroup",
+      "category": "Others",
+      "stance": "neutral",
+      "rationale": "Selective diversification."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Health Care",
+      "stance": "overweight",
+      "rationale": "Defensive growth profile, robust margins, and resilient pricing power."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Financials",
+      "stance": "overweight",
+      "rationale": "Resilient net interest margins and strong capital return programs."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Information Technology",
+      "stance": "neutral",
+      "rationale": "Structural secular AI demand counterbalanced by stretched valuations."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Consumer Staples",
+      "stance": "neutral",
+      "rationale": "Dependable dividend yields though organic volume growth is moderate."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Consumer Discretionary",
+      "stance": "underweight",
+      "rationale": "Vulnerability to tighter household budgets and discretionary spending cuts."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Industrials",
+      "stance": "neutral",
+      "rationale": "Benefiting from infrastructure spending but facing cyclical headwinds."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Materials",
+      "stance": "underweight",
+      "rationale": "Soft industrial and construction demand weighing on commodity prices."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Utilities",
+      "stance": "overweight",
+      "rationale": "Attractive regulated yields benefiting from declining benchmark interest rates."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Energy",
+      "stance": "neutral",
+      "rationale": "Disciplined capital spending and attractive free cash flow yields."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Telecommunication Services",
+      "stance": "neutral",
+      "rationale": "High defensive dividend yields providing portfolio income."
+    },
+    {
+      "dimension": "Industry",
+      "category": "Real Estate",
+      "stance": "neutral",
+      "rationale": "Select high-quality residential and logistics assets."
+    }
+  ]
+}
