@@ -201,13 +201,27 @@ def validate(
             key=lambda s: sum(len(st.text.split()) for st in s.statements),
             default=None,
         )
-        if longest is None:
-            break
-        dropped = longest.statements.pop()
-        issues.append(ValidationIssue(
-            kind="too_long",
-            detail=f"Aussage entfernt, um unter {MAX_WORDS} Woerter zu kommen",
-            statement_text=dropped.text))
+        if longest is not None:
+            dropped = longest.statements.pop()
+            issues.append(ValidationIssue(
+                kind="too_long",
+                detail=f"Aussage entfernt, um unter {MAX_WORDS} Woerter zu kommen",
+                statement_text=dropped.text))
+            continue
+        # Keine Aussage mehr entbehrlich: Fragen und Aktionen tragen ebenfalls
+        # zur Wortzahl bei. Zuerst die letzte Frage, dann die letzte Aktion —
+        # die Empfehlungen sind das Wertvollste und gehen zuletzt.
+        if len(briefing.likely_questions) > 1:
+            briefing.likely_questions.pop()
+            issues.append(ValidationIssue(
+                kind="too_long", detail=f"Frage entfernt, um unter {MAX_WORDS} Woerter zu kommen"))
+            continue
+        if len(briefing.next_best_actions) > 1:
+            briefing.next_best_actions.pop()
+            issues.append(ValidationIssue(
+                kind="too_long", detail=f"Aktion entfernt, um unter {MAX_WORDS} Woerter zu kommen"))
+            continue
+        break
 
     words = briefing.word_count()
     if words < MIN_WORDS:
