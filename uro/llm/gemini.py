@@ -125,3 +125,62 @@ def generate_briefing_gemini(fact_sheet: FactSheet) -> Briefing:
     except Exception as exc:
         logger.warning("Gemini briefing generation failed: %s", exc)
         raise LLMInvalid(f"Gemini generation error: {exc}") from exc
+
+
+def ask_chat_gemini(context_str: str, question: str, history: list[dict] | None = None) -> str:
+    """Answers a follow-up question via Gemini using strict grounding prompt."""
+    api_key = get_gemini_api_key()
+    settings = get_settings()
+    model = settings.gemini_model
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+
+    from uro.llm.prompts import CHAT_SYSTEM_PROMPT
+
+    contents = [
+        {
+            "role": "user",
+            "parts": [{"text": f"CLIENT DATA CONTEXT:\n{context_str}\n\nPlease answer the question below strictly based on this data."}],
+        },
+        {
+            "role": "model",
+            "parts": [{"text": "I have reviewed the client context and will answer based strictly on the facts provided, citing finding IDs or position IDs."}],
+        },
+    ]
+    if history:
+        for h in history[-4:]:
+            role = "model" if h.get("role") == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": h.get("content", "")}]})
+
+    contents.append({
+        "role": "user",
+        "parts": [{"text": question}],
+    })
+
+    payload = {
+        "system_instruction": {
+            "parts": [{"text": CHAT_SYSTEM_PROMPT}],
+        },
+        "contents": contents,
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 800,
+        },
+    }
+
+    try:
+        with httpx.Client(timeout=settings.gemini_timeout_s) as client:
+            resp = client.post(url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+
+        candidates = data.get("candidates") or []
+        if not candidates:
+            raise LLMInvalid("Gemini chat returned no candidates")
+
+        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        return text
+    except Exception as exc:
+        logger.warning("Gemini chat failed: %s", exc)
+        raise LLMUnavailable(f"Gemini chat unavailable: {exc}") from exc
+

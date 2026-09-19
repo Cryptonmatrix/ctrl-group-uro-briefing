@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 from uro.llm.briefing import generate_briefing
+from uro.llm.client import LLMUnavailable
 from uro.llm.gemini import generate_briefing_gemini
 from uro.models import (
     Briefing,
@@ -111,8 +112,11 @@ def test_briefing_failover_to_gemini_when_anthropic_missing():
 def test_briefing_full_failover_to_fallback():
     fs = _make_fs()
     # When both Anthropic and Gemini fail/are unconfigured
-    with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "", "GEMINI_API_KEY": "", "GOOGLE_API_KEY": ""}):
+    with patch("uro.llm.gemini.get_gemini_api_key", side_effect=LLMUnavailable("No key")), patch.dict(
+        "os.environ", {"ANTHROPIC_API_KEY": ""}
+    ):
         briefing, mode = generate_briefing(fs)
         assert mode == "fallback"
         assert isinstance(briefing, Briefing)
         assert len(briefing.sections) == 3
+

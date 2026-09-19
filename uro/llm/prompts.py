@@ -38,7 +38,7 @@ Include:
 - `likely_questions` (1–2): what the client might ask, with brief answer hints.
 - `next_best_actions` (1–3, priority 1 = most urgent): specific action with rationale.
 
-Style: professional, objective, concise, dense. English. Total length 150–220 words (maximum 240 words). No pleasantries or boilerplate."""
+Style: professional, objective, concise, dense. English. Keep sentences short and direct. Total length 150-200 words (do not exceed 220 words). No pleasantries or boilerplate."""
 
 CHAT_SYSTEM_PROMPT = """You are the follow-up assistant in URO Advisor Pro. The advisor is preparing for, or in, a conversation with the client described in the context.
 
