@@ -51,6 +51,12 @@ def sorted_notes(client: dict[str, Any]) -> list[tuple[date | None, str]]:
 
 
 _AMOUNT_RE = re.compile(r"CHF\s?(\d[\d,'\.]*)", re.IGNORECASE)
+_NEED_RE = re.compile(
+    r"\b(need|needs|needed|require|requires|will|plans?|planning|wants? to|intends?|upcoming|due)\b"
+)
+_DONE_RE = re.compile(
+    r"\b(paid|was transferred|already|completed|received|has been|were withdrawn|settled)\b"
+)
 
 
 def liquidity_need_from_notes(client: dict[str, Any]) -> tuple[float | None, str | None]:
@@ -63,6 +69,9 @@ def liquidity_need_from_notes(client: dict[str, Any]) -> tuple[float | None, str
     for i, (_, text) in enumerate(sorted_notes(client)[:NOTES_FOR_LLM], start=1):
         low = text.lower()
         if not any(w in low for w in keywords):
+            continue
+        # Nur ein künftiger Bedarf zählt: "needs/plans/will …", nicht "paid/received/already transferred …".
+        if not _NEED_RE.search(low) or _DONE_RE.search(low):
             continue
         m = _AMOUNT_RE.search(text)
         if not m:

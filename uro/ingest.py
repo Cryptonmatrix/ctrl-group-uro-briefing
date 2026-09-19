@@ -15,6 +15,7 @@ auf 0–1 umrechnet (ReferenceIndex). Sonst nirgends.
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
@@ -193,14 +194,42 @@ def strip_pii(obj: Any) -> Any:
         return obj
 
     out: dict[str, Any] = {}
-    if "ClientRef" in obj or "ClientId" in obj:  # nur auf Client-Ebene
+    is_client = "ClientRef" in obj or "ClientId" in obj
+    if is_client:  # nur auf Client-Ebene
         out["_DisplayName"] = display_name(obj)
         out["_Age"] = age_years(get(obj, "Birthday"), client_data_as_of(obj))
     for key, value in obj.items():
         if key in PII_KEYS:
             continue
         out[key] = strip_pii(value)
+    if is_client:
+        # Freitext (Notizen, Begründungen) geht in Prompt und Chat: Klarname und IBANs auch DORT entfernen,
+        # nicht nur als JSON-Schlüssel (Review P2 #17).
+        names = {str(obj.get(k) or "").strip() for k in ("FirstName", "LastName", "Company")}
+        names.add(display_name(obj).strip())
+        patterns = [
+            re.compile(rf"\b{re.escape(n)}\b", re.IGNORECASE)
+            for n in sorted((n for n in names if len(n) >= 3), key=len, reverse=True)
+        ]
+        out = {k: (_scrub_free_text(v, patterns) if k in FREE_TEXT_KEYS else v) for k, v in out.items()}
     return out
+
+
+FREE_TEXT_KEYS = {"ClientNotes", "Proposals", "Transactions"}
+IBAN_RE = re.compile(r"\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){2,7}(?:\s?[A-Z0-9]{1,3})?\b")
+
+
+def _scrub_free_text(obj: Any, patterns: list[re.Pattern[str]]) -> Any:
+    if isinstance(obj, str):
+        text = IBAN_RE.sub("[IBAN removed]", obj)
+        for p in patterns:
+            text = p.sub("the client", text)
+        return text
+    if isinstance(obj, list):
+        return [_scrub_free_text(x, patterns) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _scrub_free_text(v, patterns) for k, v in obj.items()}
+    return obj
 
 
 def display_name(client: dict[str, Any]) -> str:

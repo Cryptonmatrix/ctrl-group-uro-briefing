@@ -214,7 +214,8 @@ def test_enrich_fact_sheet_orchestration():
 
     assert len(enriched.findings) > initial_count
     assert any(f.id == "news-1" for f in enriched.findings)
-    assert any(f.id.startswith("hv-") for f in enriched.findings)
+    # CASE-003 hat keine Strategie: ohne belegtes Ziel keine Über-/Untergewichtung (früher erfundene 50/30/5-Ziele)
+    assert not any(f.id.startswith("hv-") for f in enriched.findings)
     assert any(f.id.startswith("intent-") for f in enriched.findings)
     assert "Test market warning" in enriched.warnings
     assert enriched.coverage["house_view"] == "ok"

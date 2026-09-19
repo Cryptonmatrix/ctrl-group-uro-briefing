@@ -218,14 +218,18 @@ const chf = n => new Intl.NumberFormat('de-CH',{maximumFractionDigits:0}).format
 // "+6.092343%" liest sich wie ein Rohdatensatz, nicht wie ein Beraterwerkzeug.
 const pct = (n, sign=true) => n==null ? '—'
   : (sign && n>0 ? '+' : '') + n.toFixed(2) + '%';
-const esc = s => String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+// Auch Anführungszeichen: ClientRef aus hochgeladenen Dateien landet in Attributen (data-ref).
+// Nur Issues, bei denen der Validator Inhalt entfernt hat — Längenhinweise (too_short, trimmed) sind keine Verwerfung.
+const REMOVAL_KINDS = ['unsupported_number','unknown_finding_id','no_reference','unsupported_instrument'];
+const removed = d => (d.issues||[]).filter(i => REMOVAL_KINDS.includes(i.kind));
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current = null, facts = null;
 
 async function boot(){
   const cs = await (await fetch('/api/clients')).json();
   $('#clist').innerHTML = cs.map(c=>
-    `<button class="cli" data-ref="${c.ref}">
-       <div class="r">${c.ref}${c.is_company?' · Firma':''}${c.is_new?'<span class="newtag">NEU</span>':''}</div>
+    `<button class="cli" data-ref="${esc(c.ref)}">
+       <div class="r">${esc(c.ref)}${c.is_company?' · Firma':''}${c.is_new?'<span class="newtag">NEU</span>':''}</div>
        <div class="n">${esc(c.name)}</div>
        <div class="r">CHF ${chf(c.aum)}</div>
      </button>`).join('');
@@ -235,7 +239,8 @@ async function boot(){
 async function select(ref){
   current = ref;
   document.querySelectorAll('.cli').forEach(b=>b.classList.toggle('on', b.dataset.ref===ref));
-  const d = await (await fetch(`/api/clients/${ref}/facts`)).json();
+  const d = await (await fetch(`/api/clients/${encodeURIComponent(ref)}/facts`)).json();
+  if(current !== ref) return;   // inzwischen anderer Klient gewählt: überholte Antwort verwerfen
   facts = d;
   const fs = d.fact_sheet;
   $('#cname').textContent = `${d.display_name} (${fs.client_ref})`;
@@ -437,13 +442,15 @@ $('#gen').onclick = async () => {
       : `Claude formuliert das Briefing … ${s}s`;
   }, 100);
 
+  const ref = current;
   let res, data;
   try{
-    res = await fetch(`/api/clients/${current}/briefing`, {method:'POST'});
+    res = await fetch(`/api/clients/${encodeURIComponent(ref)}/briefing`, {method:'POST'});
     data = await res.json();
   }catch(e){ data = {detail:'Server nicht erreichbar: '+e.message}; res = {ok:false}; }
 
   clearInterval(tick);
+  if(current !== ref) return;   // Klient gewechselt: Briefing von A nie unter B anzeigen
   $('#loader').classList.remove('on');
   srcs.forEach(s=>s.classList.remove('done'));
   $('#gen').disabled = false;
@@ -541,7 +548,7 @@ function renderBriefing(d){
       <span><i style="background:var(--uro-red)"></i>Risiko</span>
       <span style="margin-left:auto">${d.generation_seconds}s · <span class="wc ${countWords(b)>220?'over':''}"
         title="Ziel sind 150-220 Wörter für 60 Sekunden Lesezeit">${countWords(b)} Wörter</span> 
-        ${d.issues.length?`· <b style="color:var(--uro-red)">${d.issues.length} Aussagen verworfen</b>`
+        ${removed(d).length?`· <b style="color:var(--uro-red)" title="${esc(removed(d).map(i=>i.detail).join('\n'))}">${removed(d).length} unbelegte Inhalte entfernt</b>`
                          :'· <b style="color:var(--green)">Validator sauber</b>'}</span>
     </div>`;
 }

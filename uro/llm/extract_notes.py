@@ -105,10 +105,18 @@ def _keyword_fallback_extract(notes: list[str]) -> list[ClientIntent]:
     return intents
 
 
-def extract_intents(notes: list[str], client: anthropic.Anthropic | None = None) -> list[ClientIntent]:
-    """Extracts structured client intents from raw CRM notes."""
+def extract_intents(
+    notes: list[str], client: anthropic.Anthropic | None = None, use_llm: bool = True
+) -> list[ClientIntent]:
+    """Extracts structured client intents from raw CRM notes.
+
+    use_llm=False: nur die deterministische Stichwortsuche — kein SDK-Aufruf (hing auf dem Demo-Rechner),
+    keine rohen Notizen an einen Anbieter, keine ~10 s zusätzliche Latenz. So nutzt es api.py.
+    """
     if not notes:
         return []
+    if not use_llm:
+        return _keyword_fallback_extract(notes)
 
     settings = get_settings()
 

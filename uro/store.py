@@ -13,6 +13,7 @@ Zwei Sichten auf einen Klienten:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,8 @@ from uro.ingest import (
     lst,
 )
 from uro.models import ClientSummary, FactSheet, UploadResult
+
+CLIENT_REF_PATTERN = re.compile(r"[A-Za-z0-9_.\-]{1,64}")
 
 REFERENCE_KEYS: frozenset[str] = frozenset(
     {
@@ -261,9 +264,19 @@ class DataStore:
                                 current_list.append(item)
                         merged_ref[key] = current_list
 
-                self._reference = merged_ref
-                self._rebuild()
-                reference_merged = True
+                # Erst den Index auf dem neuen Stand bauen, dann übernehmen: scheitert er (z. B. Weight "invalid"),
+                # bleibt der laufende Datenbestand unberührt, statt danach jede Analyse mit ValueError zu kippen.
+                try:
+                    new_index = ReferenceIndex(merged_ref)
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(
+                        f"{filename}: reference data rejected, nothing changed ({type(exc).__name__}: {exc})"
+                    )
+                else:
+                    self._reference = merged_ref
+                    self.ref = new_index
+                    self._fact_sheets = {}
+                    reference_merged = True
 
         # 2. Klienten-Merge
         clients = clients_from_payload(payload)
@@ -274,6 +287,12 @@ class DataStore:
                 cid = get(client, "ClientId")
                 if not ref and cid is None:
                     errors.append(f"{filename}: client entry missing both ClientRef and ClientId")
+                    continue
+                if ref is not None and (not isinstance(ref, str) or not CLIENT_REF_PATTERN.fullmatch(ref)):
+                    # ClientRef landet in URLs und im HTML — nur harmlose Zeichen (CASE-003, TEST_01, …)
+                    errors.append(
+                        f"{filename}: invalid ClientRef {str(ref)[:40]!r} (allowed: letters, digits, - _ .)"
+                    )
                     continue
 
                 # Suche existierenden Klienten in new_clients

@@ -172,7 +172,8 @@ def client_briefing(ref: str) -> dict[str, Any]:
         if ref not in _intents:
             try:
                 notes = [str(get(n, "Note", "")) for n in (get(record, "ClientNotes") or [])]
-                _intents[ref] = extract_intents(notes) if notes else []
+                # Deterministisch (use_llm=False): Plan-Streichliste Punkt 1, SDK-Hänger, Latenz, Freitext-PII
+                _intents[ref] = extract_intents(notes, use_llm=False) if notes else []
             except Exception:  # noqa: BLE001 — Notizen sind ein Bonus, kein Muss
                 _intents[ref] = []
 

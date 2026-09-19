@@ -81,7 +81,7 @@
     t.log.push({kind: 'user', html: h(question)});
     pending = true; paint();
     try {
-      const res = await fetch(`/api/clients/${ref}/chat`, {
+      const res = await fetch(`/api/clients/${encodeURIComponent(ref)}/chat`, {
         method: 'POST', headers: {'content-type': 'application/json'},
         body: JSON.stringify({messages: t.history}),
       });

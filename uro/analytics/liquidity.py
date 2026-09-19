@@ -50,40 +50,55 @@ def liquidity_findings(fs: FactSheet, client: dict[str, Any]) -> list[Finding]:
     cash_pct = num(cash / aum * 100)
     securities = [p for pf in fs.portfolios for p in pf.positions if not is_cash(p)]
 
-    # a) Überschuss / nichts investiert
+    # Bedarf aus den Notizen zuerst: Geld, das der Kunde braucht, ist nicht "anlegbar" (Review P1 #8).
+    need, note_id = liquidity_need_from_notes(client)
+    reserved = min(need or 0.0, cash)
+    reserve_part = (
+        f" after reserving {chf(round_chf(reserved))} for the need in the client notes"
+        if reserved > 0
+        else ""
+    )
+
+    # a) Überschuss / nichts investiert — jeweils nach Abzug der Reserve
     target = _saa_liquidity_target_pct(fs)
     target_pct = num(target if target is not None else CASH_DEFAULT_TARGET * 100)
     target_label = "SAA target" if target is not None else "default target"
-    if not securities and cash > 0:
+    free_cash = cash - reserved
+    if not securities and free_cash > 0:
         out.append(
             Finding(
                 id="liq-cash",
                 type=FindingType.LIQUIDITY,
                 severity=Severity.OPPORTUNITY,
                 title=f"{pct(cash_pct)} of assets are cash ({chf(round_chf(cash))}) — nothing is invested",
-                detail="There are no security positions. The whole balance is available to invest according to the client's profile.",
-                numbers={"cash_pct": cash_pct, "cash_chf": round_chf(cash)},
-                materiality_chf=cash,
+                detail=f"There are no security positions. {chf(round_chf(free_cash))} is available to invest{reserve_part}.",
+                numbers={
+                    "cash_pct": cash_pct,
+                    "cash_chf": round_chf(cash),
+                    "free_cash_chf": round_chf(free_cash),
+                },
+                related_ids=["liq-need"] if reserved > 0 else [],
+                materiality_chf=free_cash,
                 source=SOURCE_CASH,
             )
         )
-    elif cash_pct - target_pct >= CASH_EXCESS_MIN_PP:
-        excess = round_chf((cash_pct - target_pct) / 100 * aum)
+    elif free_cash / aum * 100 - target_pct >= CASH_EXCESS_MIN_PP:
+        excess = round_chf(free_cash - target_pct / 100 * aum)
         out.append(
             Finding(
                 id="liq-cash",
                 type=FindingType.LIQUIDITY,
                 severity=Severity.OPPORTUNITY,
                 title=f"Cash {pct(cash_pct)} of assets vs {target_label} {pct(target_pct)}: ≈ {chf(excess)} available to invest",
-                detail=f"Liquidity is {chf(round_chf(cash))}; at the {target_label} of {pct(target_pct)} about {chf(excess)} could be put to work.",
+                detail=f"Liquidity is {chf(round_chf(cash))}; at the {target_label} of {pct(target_pct)} about {chf(excess)} could be put to work{reserve_part}.",
                 numbers={"cash_pct": cash_pct, "target_pct": target_pct, "excess_chf": excess},
+                related_ids=["liq-need"] if reserved > 0 else [],
                 materiality_chf=excess,
                 source=SOURCE_CASH,
             )
         )
 
     # b) Bedarf aus Notizen
-    need, note_id = liquidity_need_from_notes(client)
     if need:
         need_chf = round_chf(need)
         cash_chf = round_chf(cash)

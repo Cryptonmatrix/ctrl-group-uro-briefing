@@ -87,6 +87,21 @@ def _call_structured_briefing(
     return Briefing.model_validate(json.loads(text)), content
 
 
+MIN_ACCEPTED_STATEMENTS = (
+    1  # nach der Validierung ist nur Geprüftes übrig; dünne Klienten (nur Cash) haben wenig
+)
+
+
+def _acceptable(briefing: Briefing) -> bool:
+    """Einheitliches Annahmekriterium für Claude, Retry und Gemini — NACH der Validierung.
+
+    Der Validator hat unbelegte Aussagen, Aktionen und Fragen bereits entfernt; übrig bleibt nur Geprüftes.
+    Angenommen wird, wenn davon ein Briefing übrig ist: mindestens eine Aktion und eine Aussage.
+    """
+    statements = sum(len(s.statements) for s in briefing.sections)
+    return bool(briefing.next_best_actions) and statements >= MIN_ACCEPTED_STATEMENTS
+
+
 def _try_gemini_failover(fact_sheet: FactSheet) -> tuple[Briefing, str] | None:
     """Attempts Tier 2 failover using Google Gemini (e.g. gemini-3.5-flash-lite)."""
     try:
@@ -95,8 +110,9 @@ def _try_gemini_failover(fact_sheet: FactSheet) -> tuple[Briefing, str] | None:
         logger.info("Attempting Tier 2 LLM failover with Google Gemini for %s", fact_sheet.client_ref)
         draft = generate_briefing_gemini(fact_sheet)
         validated, issues = validate(draft, fact_sheet)
-        if validated.next_best_actions:
+        if _acceptable(validated):
             return validated, "ai_gemini"
+        logger.warning("Gemini briefing rejected after validation: %s", [i.kind for i in issues])
     except LLMUnavailable:
         logger.debug("Gemini failover skipped: no Gemini API key configured.")
     except Exception as exc:
@@ -138,8 +154,8 @@ def generate_briefing(
         )
         validated_briefing, issues = validate(draft, fact_sheet)
 
-        needs_retry = any(i.kind == "no_actions" for i in issues) or (
-            sum(1 for i in issues if i.kind == "unsupported_number") >= 2
+        needs_retry = not _acceptable(validated_briefing) or (
+            sum(1 for i in issues if i.kind in ("unsupported_number", "unsupported_instrument")) >= 2
         )
 
         if not needs_retry:
@@ -182,7 +198,7 @@ def generate_briefing(
         )
         final_briefing, final_issues = validate(retry_draft, fact_sheet)
 
-        if final_briefing.next_best_actions:
+        if _acceptable(final_briefing):
             log_llm(
                 "briefing_ai_retry",
                 fact_sheet.client_ref,

@@ -64,27 +64,15 @@ def house_view_findings(
         has_targets = (
             any(line.target_pct is not None for line in allocation_lines) if allocation_lines else False
         )
-        if (not allocation_lines or not has_targets) and p.positions:
-            total_amt = sum(pos.amount_chf for pos in p.positions) or 1.0
-            cat_weights: dict[str, float] = {}
-            for pos in p.positions:
-                cat = pos.saa_asset_class or pos.asset_class or "Shares"
-                cat_weights[cat] = cat_weights.get(cat, 0.0) + pos.amount_chf
-
-            # Build synthetic allocation lines for checking against house view
-            class _MockLine:
-                def __init__(self, dim: str, cat: str, act: float):
-                    self.dimension = dim
-                    self.category = cat
-                    self.actual_pct = act
-                    self.target_pct = 50.0 if cat == "Shares" else 30.0 if cat == "Bonds" else 5.0
-                    self.deviation_pp = self.actual_pct - self.target_pct
-
-            allocation_lines = [  # type: ignore[assignment]
-                _MockLine("AssetClass", cat, (amt / total_amt) * 100) for cat, amt in cat_weights.items()
-            ]
+        # Ohne hinterlegtes Ziel (z. B. "No strategy") gibt es keine Über-/Untergewichtung, die man behaupten
+        # dürfte. Früher wurden hier synthetische Ziele (50 % Aktien, 30 % Anleihen, sonst 5 %) erfunden —
+        # CASE-003 bekam dadurch "Shares +47.0 pp", ein Ziel, das es für den Kunden nicht gibt.
+        if not has_targets:
+            continue
 
         for line in allocation_lines:
+            if line.target_pct is None or line.deviation_pp is None:
+                continue
             view = view_map.get((line.dimension, line.category))
             if not view:
                 continue
