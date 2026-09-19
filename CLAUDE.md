@@ -268,7 +268,7 @@ nach `main`. Klare Modul-Ownership hält die Konflikte klein — Merge-Hölle um
 `risk-breach-<pnr>`, `gap-profile-<pnr>`, `gap-vola-<pnr>`, `gap-portfolio-<pnr>`, `saa-none-<pnr>`. Je Klient: `profile`,
 `viol-<slug(RuleCode)>`, `saa-<dim>-<slug>`, `conc-single-<slug(Titel)>`, `conc-sector|currency|region-<slug>` (Konzentration
 seit A2 auf Klientenebene mit Look-through), `esg-*`, `liq-cash`, `liq-need`, `liq-maturity-<secid>`, `prop-<id>`,
-`rej-proposals`, `item-*`, `note-<n>`. Folgen: `news-<n>`, `hv-<dim>-<slug>`, `drv-<secid>`, `mkt-<secid>`.
+`rej-proposals`, `item-*`, `note-<n>`, `gap-prices`. Folgen: `news-<n>`, `hv-<dim>-<slug>`, `drv-<secid>`, `mkt-<secid>`.
 
 ### Findings-Scoring (die „Wie wählt euer System aus?"-Antwort der Jury)
 

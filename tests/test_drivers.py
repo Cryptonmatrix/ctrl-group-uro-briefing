@@ -7,6 +7,7 @@ import pytest
 from uro.analytics.format import num, pct, pp
 from uro.analytics.market_comparison import market_comparison_findings, proxy_tickers
 from uro.analytics.performance import driver_findings
+from uro.enrich import enrich_fact_sheet
 from uro.models import FindingType, MarketSnapshot, PriceSeries, Severity
 
 
@@ -216,3 +217,22 @@ def test_proxy_tickers(fact_sheets):
     sector_proxies = {"Consumer Staples": "XLP", "Information Technology": "XLK"}
     pt = proxy_tickers(fs, tickers, sector_proxies)
     assert set(pt) == {"^SSMI", "XLP"}
+
+
+def test_enrich_fact_sheet_with_drivers(fact_sheets):
+    fs = fact_sheets["CASE-A01"]
+    # 1. With market=None -> no exception, no drv-*, coverage is no_data
+    fs_none = enrich_fact_sheet(fs.model_copy(deep=True), market=None)
+    assert not any(f.id.startswith("drv-") for f in fs_none.findings)
+    assert fs_none.coverage.get("drivers") == "no_data"
+
+    # 2. With market snapshot -> drv-* and coverage is ok
+    snap = MarketSnapshot(
+        source="live",
+        as_of=datetime(2026, 9, 19),
+        tickers={101: "LISN.SW"},
+        prices={"LISN.SW": PriceSeries(ticker="LISN.SW", closes=[100.0, 90.0])},
+    )
+    fs_enriched = enrich_fact_sheet(fs.model_copy(deep=True), market=snap)
+    assert any(f.id.startswith("drv-") for f in fs_enriched.findings)
+    assert fs_enriched.coverage.get("drivers") == "ok"

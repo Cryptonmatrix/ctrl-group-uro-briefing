@@ -14,6 +14,7 @@ import logging
 from datetime import date, datetime
 from pathlib import Path
 
+from uro.analytics.market_comparison import proxy_tickers
 from uro.config import get_settings
 from uro.enrich.news import fetch_news
 from uro.models import FactSheet, MarketSnapshot, PositionFact, PriceSeries
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 # In-memory memo for the process lifetime
 _TICKER_MEMO: dict[int, str] = {}
 _OVERRIDES_CACHE: dict[str, str] | None = None
+_SECTOR_PROXIES_CACHE: dict[str, dict[str, str]] = {}
 
 
 def _load_overrides() -> dict[str, str]:
@@ -37,6 +39,20 @@ def _load_overrides() -> dict[str, str]:
         else:
             _OVERRIDES_CACHE = {}
     return _OVERRIDES_CACHE
+
+
+def load_sector_proxies(path: str = "data/sector_proxies.json") -> dict[str, str]:
+    global _SECTOR_PROXIES_CACHE
+    if path not in _SECTOR_PROXIES_CACHE:
+        p = Path(path)
+        if p.exists():
+            try:
+                _SECTOR_PROXIES_CACHE[path] = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                _SECTOR_PROXIES_CACHE[path] = {}
+        else:
+            _SECTOR_PROXIES_CACHE[path] = {}
+    return _SECTOR_PROXIES_CACHE[path]
 
 
 def resolve_single_ticker(pos: PositionFact) -> str | None:
@@ -187,8 +203,8 @@ def build_snapshot(fact_sheet: FactSheet, budget_s: float = 8.0) -> MarketSnapsh
         ticker_map = resolve_tickers(all_positions, max_positions=settings.market_top_positions)
         tickers = list(ticker_map.values())
 
-        # Proxies from config
-        proxies = ["^SSMI", "^GSPC", "SOXX", "XLK", "XLV"]
+        # Proxies from proxy_tickers
+        proxies = proxy_tickers(fact_sheet, ticker_map, load_sector_proxies())
 
         # 2. Fetch prices & news in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
