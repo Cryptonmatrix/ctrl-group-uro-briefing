@@ -372,7 +372,7 @@ class BriefingResult(BaseModel):
     generation_seconds: float = 0.0
 
     display_name: str = Field(default="", description="UI-Pfad, nie im LLM-Pfad")
-    mode: Literal["ai", "ai_retry", "fallback"] = Field(
+    mode: Literal["ai", "ai_retry", "ai_gemini", "fallback"] = Field(
         default="ai", description="fallback = deterministisches Template-Briefing, weil LLM nicht verfuegbar"
     )
     timings_ms: dict[str, int] = Field(
