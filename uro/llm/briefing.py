@@ -4,51 +4,87 @@ Resilienz-Kette:
   1. Primär: Anthropic Claude (Opus 5 / Sonnet 5 via config.py) mit Structured Outputs.
   2. Sekundär (Failover): Google Gemini (z.B. gemini-3.5-flash-lite) via REST & JSON-Schema.
   3. Tertiär (Fallback): Deterministisches Template-Briefing (garantiert immer HTTP 200).
+
+Transport für Stufe 1 (Merge gianluca + levin/frontend-api):
+  Standardmässig über uro/llm/transport.py (Standardbibliothek, Levin). Das anthropic-SDK hing auf dem
+  Demo-Rechner reproduzierbar über 280 s trotz timeout=60 — ein Aufruf, der nie zurückkommt, würde die
+  Kette blockieren, bevor Gemini oder das Template greifen. Wer explizit einen SDK-Client übergibt
+  (z. B. in Tests), bekommt weiterhin den SDK-Weg.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
+from typing import Any
 
 import anthropic
 
 from uro.config import get_settings
-from uro.llm.client import LLMUnavailable, get_client, log_llm
+from uro.llm.client import LLMUnavailable, log_llm
 from uro.llm.fallback import template_briefing
 from uro.llm.prompts import SYSTEM_PROMPT, render_fact_sheet
+from uro.llm.transport import post_messages
 from uro.llm.validator import validate
 from uro.models import Briefing, FactSheet
 
 logger = logging.getLogger(__name__)
 
 
+def _anthropic_key_configured() -> bool:
+    """Schlüssel aus .env (Settings) oder Umgebung — dieselbe Quelle, die transport.post_messages nutzt."""
+    key = get_settings().anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY")
+    return bool(key and key.strip())
+
+
 def _call_structured_briefing(
-    client: anthropic.Anthropic,
+    client: anthropic.Anthropic | None,
     model: str,
     max_tokens: int,
     effort: str | None,
     system: list[dict],
     messages: list[dict],
-) -> tuple[Briefing, list[anthropic.types.ContentBlock]]:
+) -> tuple[Briefing, list[Any]]:
     output_cfg: dict = {"format": {"type": "json_schema", "schema": Briefing.model_json_schema()}}
     if effort:
         output_cfg["effort"] = effort
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=system,
-        messages=messages,
-        output_config=output_cfg,
-    )
-    if response.stop_reason == "refusal":
-        raise RuntimeError("Model refused the request.")
-    if response.stop_reason == "max_tokens":
-        raise RuntimeError("Response truncated at max_tokens.")
+    if client is not None:
+        response = client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=messages,
+            output_config=output_cfg,
+        )
+        stop_reason = response.stop_reason
+        content: list[Any] = list(response.content)
+        text = next((b.text for b in response.content if b.type == "text"), None)
+    else:
+        settings = get_settings()
+        data = post_messages(
+            {
+                "model": model,
+                "max_tokens": max_tokens,
+                "system": system,
+                "messages": messages,
+                "output_config": output_cfg,
+            },
+            timeout=settings.llm_timeout_s,
+            retries=settings.llm_max_retries,
+        )
+        stop_reason = data.get("stop_reason")
+        content = data.get("content") or []
+        text = next((b.get("text") for b in content if b.get("type") == "text"), None)
 
-    text = next(b.text for b in response.content if b.type == "text")
-    return Briefing.model_validate(json.loads(text)), response.content
+    if stop_reason == "refusal":
+        raise RuntimeError("Model refused the request.")
+    if stop_reason == "max_tokens":
+        raise RuntimeError("Response truncated at max_tokens.")
+    if text is None:
+        raise RuntimeError("Response contained no text block.")
+    return Briefing.model_validate(json.loads(text)), content
 
 
 def _try_gemini_failover(fact_sheet: FactSheet) -> tuple[Briefing, str] | None:
@@ -78,11 +114,8 @@ def generate_briefing(
     """
     settings = get_settings()
 
-    # 1. Check Anthropic Client
-    try:
-        if client is None:
-            client = get_client()
-    except LLMUnavailable:
+    # 1. Check Anthropic access (explicit SDK client, or a key for the stdlib transport)
+    if client is None and not _anthropic_key_configured():
         logger.info("Anthropic API key not configured. Checking Tier 2 failover (Gemini).")
         gemini_result = _try_gemini_failover(fact_sheet)
         if gemini_result is not None:

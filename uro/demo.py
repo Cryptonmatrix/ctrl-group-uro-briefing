@@ -88,10 +88,17 @@ def main(argv: list[str]) -> int:
         return 1
 
     from uro.llm.briefing import generate_briefing
+    from uro.llm.transport import LLMError
     from uro.llm.validator import validate
 
     t1 = time.perf_counter()
-    briefing, mode = generate_briefing(fs)
+    try:
+        briefing, mode = generate_briefing(fs)  # Kette Claude → Gemini → Template, liefert immer ein Briefing
+    except LLMError as exc:
+        print(f"\n  {COLORS['risk']}{type(exc).__name__} nach "
+              f"{time.perf_counter() - t1:.0f}s: {exc}{RESET}")
+        return 1
+
     briefing, issues = validate(briefing, fs)
     print(f"\n  {BOLD}Modus: {mode}{RESET}")
     print_briefing(briefing, issues, time.perf_counter() - t1)
