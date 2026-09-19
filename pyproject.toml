@@ -6,15 +6,20 @@ dependencies = [
     "anthropic>=1.7.0",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
+    "pandas>=3.0.6",
     "pdfplumber>=0.11.10",
     "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
     "python-dateutil>=2.9.0.post0",
+    "python-multipart>=0.0.32",
     "uvicorn>=0.53.0",
+    "yfinance>=1.7.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "ruff>=0.16.8",
 ]
 
 [build-system]
@@ -26,3 +31,11 @@ packages = ["uro"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501", "UP042"]  # E501: lange Kommentarzeilen bewusst; UP042: class X(str, Enum) bleibt, .value wird ueberall genutzt

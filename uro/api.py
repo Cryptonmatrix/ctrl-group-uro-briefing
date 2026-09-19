@@ -101,26 +101,25 @@ def client_briefing(ref: str) -> dict[str, Any]:
             detail="ANTHROPIC_API_KEY fehlt. Die Engine laeuft, der Briefing-Text braucht einen Schlüssel.",
         )
     from uro.llm.briefing import generate_briefing
-    from uro.llm.transport import (
-        LLMAuthError, LLMBadRequest, LLMError, LLMRateLimit, LLMServerError, LLMTimeout,
-    )
     from uro.llm.validator import validate
 
+    # generate_briefing faellt intern auf ein Template zurueck, wenn das Modell
+    # nicht erreichbar ist. Der Endpoint liefert deshalb IMMER ein Briefing —
+    # mode sagt, woher es kommt. Das ist Kriterium 2 (Robustheit).
     t0 = time.perf_counter()
     try:
-        briefing, issues = validate(generate_briefing(fs), fs)
-    except LLMTimeout as exc:
-        raise HTTPException(status_code=504, detail=f"{exc} Die Befunde der Engine stehen "
-                            "unten — sie stammen aus echten Daten und sind unabhängig vom Modell.") from None
-    except LLMAuthError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from None
-    except LLMRateLimit as exc:
-        raise HTTPException(status_code=429, detail=str(exc)) from None
-    except (LLMServerError, LLMBadRequest, LLMError) as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from None
+        briefing, mode = generate_briefing(fs)
+        briefing, issues = validate(briefing, fs)
+    except Exception as exc:  # noqa: BLE001 — nichts darf als Hänger beim Berater ankommen
+        raise HTTPException(
+            status_code=502,
+            detail=f"{type(exc).__name__}: {exc}. Die Befunde der Engine stehen unten — "
+                   "sie stammen aus echten Daten und sind unabhängig vom Modell.",
+        ) from None
 
     result = BriefingResult(
-        client_ref=ref, briefing=briefing, fact_sheet=fs, issues=issues,
+        client_ref=ref, briefing=briefing, fact_sheet=fs, issues=issues, mode=mode,
+        display_name=_find(ref).get("_DisplayName", ref),
         generation_seconds=round(time.perf_counter() - t0, 2),
     )
     return result.model_dump(mode="json")

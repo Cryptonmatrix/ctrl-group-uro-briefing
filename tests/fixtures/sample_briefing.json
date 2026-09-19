@@ -1,0 +1,94 @@
+{
+  "headline": "Portfolio overview: Volatilität 20.0% überschreitet das Profillimit von 12.0%.",
+  "sections": [
+    {
+      "title": "Recent Portfolio Development",
+      "statements": [
+        {
+          "text": "Portfolio hat über 3 Monate +6.09% zugelegt. 3 Monate 6.09%, 12 Monate 12.1%, seit Jahresbeginn 2.22%. Gerechnet aus der Monatshistorie, da PerformanceYTD im Datensatz fehlt.",
+          "type": "fact",
+          "finding_ids": [
+            "perf-CASE-003-01"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Portfolio Health Check",
+      "statements": [
+        {
+          "text": "Volatilität 20.0% überschreitet das Profillimit von 12.0%. Das Portfolio liegt 67% über der Obergrenze des Profils Anlageprofil 5. Die Regel-Engine meldet dazu keinen Verstoss.",
+          "type": "risk",
+          "finding_ids": [
+            "risk-breach-CASE-003-01"
+          ]
+        },
+        {
+          "text": "73.4% des Portfolios in einem einzigen Titel: Namen-Aktie Chocoladefabriken Lindt & Spruengli AG. Namen-Aktie Chocoladefabriken Lindt & Spruengli AG macht 73.4% aus (CHF 103,200). Ab 40% gilt das als Klumpenrisiko.",
+          "type": "risk",
+          "finding_ids": [
+            "conc-single-CASE-003-01"
+          ]
+        },
+        {
+          "text": "73.4% im Sektor Consumer Staples. Sektorkonzentration Consumer Staples: 73.4% des Portfolios.",
+          "type": "fact",
+          "finding_ids": [
+            "conc-sector-CASE-003-01"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Portfolio Outlook & Next Best Actions",
+      "statements": [
+        {
+          "text": "73.4% im Sektor Consumer Staples. Sektorkonzentration Consumer Staples: 73.4% des Portfolios.",
+          "type": "recommendation",
+          "finding_ids": [
+            "conc-sector-CASE-003-01"
+          ]
+        }
+      ]
+    }
+  ],
+  "likely_questions": [
+    {
+      "question": "What is driving Volatilität 20.0% überschreitet das Profillimit von 12.0%?",
+      "answer_hint": "Refer to Das Portfolio liegt 67% über der Obergrenze des Profils Anlageprofil 5. Die Regel-Engine meldet dazu."
+    },
+    {
+      "question": "How should we address 73.4% des Portfolios in einem einzigen Titel: Namen-Aktie Chocoladefabriken Lindt & Spruengli AG?",
+      "answer_hint": "Evaluate rebalancing or adjustments based on conc-single-CASE-003-01."
+    }
+  ],
+  "next_best_actions": [
+    {
+      "action": "Resolve suitability breach: Volatilität 20.0% überschreitet das Profillimit von 12.0%",
+      "rationale": "Eliminate mandate violation and restore regulatory compliance.",
+      "finding_ids": [
+        "risk-breach-CASE-003-01"
+      ],
+      "priority": 1,
+      "kind": "resolve_violation"
+    },
+    {
+      "action": "Trim concentration: 73.4% des Portfolios in einem einzigen Titel: Namen-Aktie Chocoladefabriken Lindt & Spruengli AG",
+      "rationale": "Diversify exposure to mitigate cluster risk.",
+      "finding_ids": [
+        "conc-single-CASE-003-01"
+      ],
+      "priority": 2,
+      "kind": "reduce_concentration"
+    },
+    {
+      "action": "Trim concentration: 73.4% im Sektor Consumer Staples",
+      "rationale": "Diversify exposure to mitigate cluster risk.",
+      "finding_ids": [
+        "conc-sector-CASE-003-01"
+      ],
+      "priority": 2,
+      "kind": "reduce_concentration"
+    }
+  ]
+}

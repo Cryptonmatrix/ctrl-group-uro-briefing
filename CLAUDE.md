@@ -25,6 +25,10 @@ Das Briefing hat genau drei Abschnitte:
 **Der Kern, der uns von allen anderen unterscheidet:** eine *kohärente, klientenspezifische Storyline*,
 keine drei getrennten Daten-Zusammenfassungen. Der Zusammenhang ist das Produkt.
 
+**Umsetzungsplan mit Aufträgen, Signaturen und Uhrzeiten:** `docs/superpowers/plans/2026-09-19-uro-briefing-strategy.md`.
+Quellenhierarchie bei Widersprüchen (dort §0): Plan §1 Entscheidungslog → diese Datei → `docs/data-notes.md` →
+Design-Spec `docs/superpowers/specs/2026-09-18-uro-briefing-assistant-design.md` (Formeln, Prompts, UI-Details).
+
 ---
 
 ## 2. Bewertungskriterien — und was sie für uns konkret heissen
@@ -65,13 +69,14 @@ News + House View ────────────────────�
 **Harte Regeln:**
 
 - Das LLM bekommt **nie** Rohdaten zum Rechnen. Es bekommt fertige Findings und formuliert.
-- Jede Aussage im Briefing-JSON hat `type` (`fact` | `market` | `house_view` | `recommendation` | `risk`)
-  und `finding_ids: []`. Ohne Referenz wird die Aussage verworfen.
+- Jede Aussage im Briefing-JSON hat `type` (`fact` | `market` | `house_view` | `recommendation` | `risk` |
+  `assessment` = Interpretation des Assistenten, kursiv) und `finding_ids: []`. Ohne Referenz wird die Aussage verworfen.
 - Fehlende Daten sind **selbst ein Finding** („Kein Risikoprofil hinterlegt", „Volatilität nicht
   berechnet"), niemals ein stiller Fallback und niemals eine Exception.
-- **IBANs, Geburtsdaten und Klarnamen gehen nie in einen Prompt.** Im Ingest strippen. (Die IBANs im
-  Datensatz sind laut UnRiskOmega *echt durchgereicht* — das ist auch ein Pitch-Punkt: Schweizer Banken
-  fragen als erstes nach Datenschutz.)
+- **IBANs, Geburtsdaten und Klarnamen gehen nie in einen Prompt.** Im Ingest strippen. (Laut DATA.md können
+  IBANs *echt durchgereicht* sein; im aktuellen Export ist **keine einzige** enthalten, der Key fehlt in allen
+  123 Kontopositionen — neue Dateien können sie aber tragen. Pitch-Formulierung deshalb: „Das Schema führt IBANs,
+  wir entfernen sie an einer definierten Stelle." Schweizer Banken fragen als erstes nach Datenschutz.)
 
 ---
 
@@ -80,6 +85,11 @@ News + House View ────────────────────�
 47 Klienten · 57 Portfolios · 504 Securities · 48'101 Fonds-Look-through-Zeilen · 180 Suitability-Verstösse
 (bei 26 Klienten) · 206 Proposals · 1'274 Transaktionen · 153 Client Notes (jeder Klient hat welche).
 Performance-Historie: 58 Monatspunkte pro Portfolio, Ende `2026-07-01`. Klientennamen sind Filmfiguren.
+
+**Verifizierte Feldnamen, exakte Kategorie-Strings und alle Stellen, an denen `DATA.md` nicht stimmt:**
+`docs/data-notes.md` — u. a. Notizen sind Englisch (153/153), 29 von 57 Portfolios hängen an einer leeren
+„Keine Strategie"-SAA (Min 0 / Target 0 / Max 1), nur `AssetClass`-Mappings haben Min/Max, `Specialties andCommodities`
+ist ein Original-Tippfehler und Join-Key. **Feldnamen von dort kopieren, nie raten.**
 
 ### Die fünf Fallen — geprüft, nicht vermutet
 
@@ -162,7 +172,8 @@ uro-briefing/
 ├─ PITCH.md               ← Designentscheidungen und Pitch-Notizen
 ├─ data/                  ← clients.json, reference.json, house_view.json (noch zu bauen)
 ├─ uro/
-│  ├─ models.py           ← FactSheet, Finding, Briefing              [gemeinsam]
+│  ├─ models.py           ← FactSheet, Finding, Briefing, API-Modelle [gemeinsam, nur additiv]
+│  ├─ config.py           ← Settings (.env) + alle Schwellen/Mappings │ JACOB
 │  ├─ ingest.py           ← laden, normalisieren, PII strippen        │ JACOB
 │  ├─ analytics/          ← __init__ (build_fact_sheet), performance, │ JACOB
 │  │                        concentration, suitability, scoring,      │
@@ -170,10 +181,13 @@ uro-briefing/
 │  ├─ enrich/             ← news.py, house_view.py — beide offen      │ GIANLUCA
 │  ├─ llm/                ← prompts, briefing, validator fertig;      │ GIANLUCA
 │  │                        chat + extract_notes offen                │
-│  ├─ api.py              ← FastAPI, nur /health                      │ LEVIN
+│  ├─ api.py              ← FastAPI: health, clients, facts, briefing; │ LEVIN
+│  │                        liefert frontend/index.html unter /       │
 │  └─ demo.py             ← CLI-Durchstich, laeuft                    │ LEVIN
-├─ frontend/              ← Vite + React + Tailwind — noch nicht da   │ LEVIN
-└─ eval/run_all.py        ← Batch ueber alle Klienten, laeuft         │ LEVIN
+├─ frontend/index.html    ← eine Datei, kein Build, URO-Look          │ LEVIN (Branch levin/frontend-api)
+├─ eval/run_all.py        ← Batch ueber alle Klienten, laeuft         │ LEVIN
+├─ Makefile               ← make dev / test / lint / smoke / demo
+└─ docs/                  ← Plan, data-notes, Design-Spec
 ```
 
 
@@ -211,9 +225,10 @@ uv run python -m eval.run_all
 und dann findet Python das Paket `uro` nicht. Als Modul vom Wurzelverzeichnis funktioniert es
 immer. Wer eine neue ausfuehrbare Datei anlegt, legt ein `__init__.py` daneben.
 
-**Git-Workflow:** ein Branch (`main`), oft committen, `git pull --rebase` vor jedem Push. Bei drei Leuten
-mit klarer Modul-Ownership ist das schneller als Feature-Branches — Merge-Hölle um Stunde 20 ist ein
-reales Risiko, kein theoretisches.
+**Git-Workflow (Stand 01:00):** Jacob und Gianluca arbeiten auf `main` (oft committen, `git pull --rebase`
+vor jedem Push). Levin baut Frontend und `api.py` auf `levin/frontend-api` und merged vor jedem Meilenstein
+nach `main`. Klare Modul-Ownership hält die Konflikte klein — Merge-Hölle um Stunde 20 ist ein reales Risiko.
+**Änderungen an `uro/models.py` nur additiv, Commit-Präfix `CONTRACT CHANGE:`, vorher im Teamchat.**
 
 ---
 
@@ -224,8 +239,12 @@ reales Risiko, kein theoretisches.
   sofort gerendert — der Berater sieht nie einen leeren Screen, während der Erzähltext nachläuft.
 - **Kosten/Speed:** Prompt-Caching auf dem System-Prompt (`cache_control={"type": "ephemeral"}`).
   Der System-Prompt ist stabil, die Findings variieren → stabiler Teil zuerst, volatiler danach.
-- **Output:** strukturiertes JSON via `output_config.format`, nie Fliesstext. Pro Abschnitt max. 3 Aussagen.
+- **Output:** Structured Output via `client.messages.parse(..., output_format=Briefing)` — so steht es bereits in
+  `llm/briefing.py`; das Pydantic-Modell ist das Schema. Kein forced `tool_choice`, nie Fliesstext. Pro Abschnitt
+  max. 3 Aussagen. Modellname, `effort`, Timeout und `max_tokens` kommen aus `uro/config.py` (`settings.llm_*`).
 - **Kein Prefill.** Auf Opus 5 gibt das einen 400er.
+- **Immer ein Briefing:** LLM nicht erreichbar oder Output ungültig → ein Retry, dann deterministisches
+  Template-Briefing (`llm/fallback.py`, `BriefingResult.mode = "fallback"`). Der Endpoint liefert nie 5xx wegen des LLM.
 
 ### Briefing-Output-Contract
 
@@ -234,14 +253,20 @@ reales Risiko, kein theoretisches.
   "headline": str,                      # ein Satz, die Kernaussage
   "sections": [
     {"title": "Recent Portfolio Development", "statements": [
-       {"text": str, "type": "fact"|"market"|"house_view"|"recommendation"|"risk",
+       {"text": str, "type": "fact"|"market"|"house_view"|"recommendation"|"risk"|"assessment",
         "finding_ids": [str]}
     ]}, ...
   ],
   "likely_questions": [{"question": str, "answer_hint": str}],   # max 2
-  "next_best_actions": [{"action": str, "rationale": str, "finding_ids": [str]}]
+  "next_best_actions": [{"action": str, "rationale": str, "finding_ids": [str],
+                         "priority": 1|2|3, "kind": "resolve_violation"|"rebalance"|"reduce_concentration"|
+                         "reinvest_liquidity"|"follow_up_proposal"|"buy"|"sell"|"switch"|"client_follow_up"|"update_profile"}]
 }
 ```
+
+**Finding-IDs** (Plan §3.3): `<quelle>-<slug>`, stabil über Läufe. Bestehende IDs nicht umbenennen: `perf-<pnr>`,
+`conc-single-<pnr>`, `conc-sector-<pnr>`, `risk-breach-<pnr>`, `gap-profile-<pnr>`, `gap-vola-<pnr>`. Neu: `viol-<slug(RuleCode)>`,
+`saa-<dim>-<slug>`, `liq-*`, `prop-<id>`, `note-<n>`, `news-<n>`, `hv-<dim>-<slug>`, `profile`.
 
 ### Findings-Scoring (die „Wie wählt euer System aus?"-Antwort der Jury)
 
@@ -269,6 +294,9 @@ Nur die **Top 3–5** kommen ins Briefing. Der Rest bleibt im Follow-up-Chat abr
 | **12:30–13:30** | Batch-Lauf über alle 47 Klienten + die neuen Dateien. Kennzahlen für den Pitch. |
 | **13:30** | **Feature-Freeze.** Ab hier nur noch Stabilität, Demo-Probe, Slides. Keine neuen Features, egal wie verlockend. |
 | **15:00** | **Pitch.** |
+
+**Aktueller Zeitplan mit Aufträgen je Person (A0–A4, B1–B3, C1–C4):** Plan §5 und §6. Stand 01:00: Engine-Durchstich ✅,
+Frontend ✅ (Branch), LLM-Call noch nie gelaufen (API-Key fehlt), Contract-Änderung ✅.
 
 **Die grösste strategische Gefahr:** sich ins Mockup-Design verlieben, bevor die Pipeline läuft.
 UX ist 15%. Implementation + AI Quality sind zusammen 45%.
@@ -324,6 +352,11 @@ Bevor du Code schreibst:
 1. Diese Datei gelesen — besonders **§4 Die Fallen** und **§3 Harte Regeln**.
 2. Geprüft, ob du in **deinem Modul** arbeitest (§5). Fremde Module nicht anfassen ohne Absprache.
 3. Keine Zahl im LLM-Pfad berechnen. Zahlen kommen aus `analytics/`, Punkt.
-4. Jeder Feldzugriff auf Case-Daten defensiv: `obj.get("X") or []` — die Daten enthalten `null`,
+4. Jeder Feldzugriff auf Case-Daten defensiv: `uro.ingest.get()` / `lst()` — die Daten enthalten `null`,
    nicht nur fehlende Keys.
-5. Neue Erkenntnis über die Daten? **Hier eintragen**, nicht im Chat lassen.
+5. Neue Erkenntnis über die Daten? In `docs/data-notes.md` eintragen (Feldnamen) bzw. **hier** (Entscheidungen),
+   nicht im Chat lassen.
+6. Feldnamen und Kategorie-Strings nur aus `docs/data-notes.md`; Schwellen nur aus `uro/config.py`; Finding-IDs nach
+   dem Schema in §7. Bestehende Funktionen erweitern, nicht ersetzen — der Batch muss 47/47 bleiben (`make smoke`).
+7. Vor dem Start `git pull --rebase`. Nach jeder Änderung `make smoke` (Analytics) bzw. `make test && make lint`.
+   Kein `date.today()` in `analytics/` — Zeitanker sind `FactSheet.history_as_of` / `data_as_of`.

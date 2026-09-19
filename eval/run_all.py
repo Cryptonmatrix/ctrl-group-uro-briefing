@@ -9,7 +9,6 @@ Beantwortet die Jury-Frage nach dem unbekannten Testklienten, bevor sie gestellt
 
 from __future__ import annotations
 
-import os
 import statistics
 import sys
 import time
