@@ -1,0 +1,135 @@
+{
+  "Securities": [
+    {
+      "Id": 101, "Isin": "CH0010570767", "Valor": "1057076", "Name": "Chocoladefabriken Lindt & Spruengli AG N",
+      "SecurityTypeId": 1, "SecurityTypeName": "Shares", "Currency": "CHF",
+      "Assetclass": 12, "AssetClassName": "Equities Switzerland", "Industry": 30, "IndustryName": "Consumer Staples",
+      "CountryId": 1, "CountryName": "Switzerland", "CurrencyGroupName": "Swiss francs", "CountryGroupName": "Equities Switzerland",
+      "SAA_AssetClassName": "Shares", "SAA_CurrencyGroupName": "Swiss francs", "SAA_CountryGroupName": "Switzerland", "SAA_IndustryName": "Consumer Staples",
+      "IsMoneyMarket": false, "IsTreasury": false, "EndOfDayPrice": 10500.0, "PriceDateUtc": "2026-09-18T00:00:00Z",
+      "Volatility": 0.18, "ExpectedReturn": 0.06, "SustainabilityRatingId": 3, "SustainabilityScore": 7.5,
+      "IsUnbundlingEnabled": false, "MaturityDateUtc": "2299-12-31T00:00:00Z", "PRC": 5, "InRecommendationList": true,
+      "ProductClassId": 1, "ProductClassName": "Equity"
+    },
+    {
+      "Id": 102, "Isin": "CH0406705126", "Valor": "40670512", "Name": "Sensirion Holding AG",
+      "SecurityTypeId": 1, "SecurityTypeName": "Shares", "Currency": "CHF",
+      "Assetclass": 12, "AssetClassName": "Equities Switzerland", "Industry": 45, "IndustryName": "Information Technology",
+      "CountryId": 1, "CountryName": "Switzerland", "CurrencyGroupName": "Swiss francs", "CountryGroupName": "Equities Switzerland",
+      "SAA_AssetClassName": "Shares", "SAA_CurrencyGroupName": "Swiss francs", "SAA_CountryGroupName": "Switzerland", "SAA_IndustryName": "Information Technology",
+      "IsMoneyMarket": false, "IsTreasury": false, "EndOfDayPrice": 47.0, "PriceDateUtc": "2026-09-18T00:00:00Z",
+      "Volatility": 0.35, "ExpectedReturn": 0.08, "SustainabilityRatingId": 4, "SustainabilityScore": 6.2,
+      "IsUnbundlingEnabled": false, "PRC": 6, "InRecommendationList": true, "ProductClassId": 1, "ProductClassName": "Equity"
+    },
+    {
+      "Id": 103, "Isin": "LU0000000001", "Valor": "9000001", "Name": "Global Equity Fund (CHF)",
+      "SecurityTypeId": 2, "SecurityTypeName": "Investment fund", "Currency": "CHF",
+      "Assetclass": 40, "AssetClassName": "Equities World", "CountryGroupName": "Equities World",
+      "SAA_AssetClassName": "Shares", "SAA_CurrencyGroupName": "Swiss francs", "SAA_CountryGroupName": "Others",
+      "IsMoneyMarket": false, "IsTreasury": false, "EndOfDayPrice": 150.0, "PriceDateUtc": "2026-09-18T00:00:00Z",
+      "Volatility": 0.16, "ExpectedReturn": 0.06, "SustainabilityRatingId": 6, "SustainabilityScore": 4.0,
+      "IsUnbundlingEnabled": true, "PRC": 5, "InRecommendationList": true, "ProductClassId": 2, "ProductClassName": "Fund"
+    },
+    {
+      "Id": 104, "Isin": "CH0000000004", "Valor": "9000004", "Name": "Swiss Confederation 1.5% 2027",
+      "SecurityTypeId": 3, "SecurityTypeName": "Bonds, debt register claims", "Currency": "CHF",
+      "Assetclass": 20, "AssetClassName": "Bonds CHF", "CountryId": 1, "CountryName": "Switzerland",
+      "CurrencyGroupName": "Swiss francs", "CountryGroupName": "Bonds Switzerland",
+      "SAA_AssetClassName": "Bonds", "SAA_CurrencyGroupName": "Swiss francs", "SAA_CountryGroupName": "Switzerland",
+      "IsMoneyMarket": false, "IsTreasury": true, "EndOfDayPrice": 100.0, "PriceDateUtc": "2026-09-18T00:00:00Z",
+      "Volatility": 0.03, "ExpectedReturn": 0.012, "SustainabilityRatingId": 2, "SustainabilityScore": 8.0,
+      "IsUnbundlingEnabled": false, "MaturityDateUtc": "2027-01-15T00:00:00Z", "PRC": 2, "YieldToMaturity": 0.012,
+      "InRecommendationList": true, "ProductClassId": 3, "ProductClassName": "Bond"
+    },
+    {
+      "Id": 105, "Isin": "LU0000000001", "Valor": "9000001", "Name": "Global Equity Fund (USD)",
+      "SecurityTypeId": 2, "SecurityTypeName": "Investment fund", "Currency": "USD",
+      "Assetclass": 40, "AssetClassName": "Equities World", "CountryGroupName": "Equities World",
+      "SAA_AssetClassName": "Shares", "SAA_CurrencyGroupName": "US-Dollar", "SAA_CountryGroupName": "Others",
+      "IsMoneyMarket": false, "IsTreasury": false, "EndOfDayPrice": 165.0, "PriceDateUtc": "2026-09-18T00:00:00Z",
+      "Volatility": 0.17, "ExpectedReturn": 0.06, "SustainabilityScore": 4.0,
+      "IsUnbundlingEnabled": true, "PRC": 5, "InRecommendationList": false, "ProductClassId": 2, "ProductClassName": "Fund"
+    }
+  ],
+  "FundUnbundlingMappings": [
+    {"FundSecurityId": 103, "FundSecurityIsin": "LU0000000001", "AssetClassName": "Equities North America", "CurrencyGroupName": "US-Dollar", "CountryGroupName": "Equities North America", "IndustryName": "Information Technology", "Weight": 40.0},
+    {"FundSecurityId": 103, "FundSecurityIsin": "LU0000000001", "AssetClassName": "Equities North America", "CurrencyGroupName": "US-Dollar", "CountryGroupName": "Equities North America", "IndustryName": "Health Care", "Weight": 30.0},
+    {"FundSecurityId": 103, "FundSecurityIsin": "LU0000000001", "AssetClassName": "Equities Switzerland", "CurrencyGroupName": "Swiss francs", "CountryGroupName": "Equities Switzerland", "IndustryName": "Raw materials", "Weight": 20.0},
+    {"FundSecurityId": 103, "FundSecurityIsin": "LU0000000001", "AssetClassName": "Equities EmMa", "CurrencyGroupName": "Andere", "CountryGroupName": "Equities Emerging Markets", "IndustryName": "Financials", "Weight": 10.0}
+  ],
+  "SuitabilityRules": [
+    {"Id": 1, "RuleCode": "Cluster risk of a single financial instrument", "Description": "Maximales Gewicht eines Einzeltitels überschritten", "Level": 2, "IsIndividual": false},
+    {"Id": 2, "RuleCode": "Compliance with maximum volatility", "Description": "Die Portfoliovolatilität überschreitet das Maximum des Anlageprofils", "Level": 2, "IsIndividual": false},
+    {"Id": 3, "RuleCode": "Knowledge of structured products", "Description": "Kenntnisse zu strukturierten Produkten fehlen", "Level": 2, "IsIndividual": true}
+  ],
+  "RiskProfiles": [
+    {"Id": 15, "Name": "Anlageprofil 3", "Description": "Anlageprofil 3", "RiskLevel": 3, "MaxVola": 0.075, "MaxPRC": 4, "EquityQuoteInPercent": 0.45},
+    {"Id": 16, "Name": "Anlageprofil 4", "Description": "Anlageprofil 4", "RiskLevel": 4, "MaxVola": 0.1, "MaxPRC": 6, "EquityQuoteInPercent": 0.65},
+    {"Id": 17, "Name": "Anlageprofil 5", "Description": "Anlageprofil 5", "RiskLevel": 5, "MaxVola": 0.12, "MaxPRC": 7, "EquityQuoteInPercent": 0.85},
+    {"Id": 18, "Name": "Anlageprofil 6", "Description": "Anlageprofil 6", "RiskLevel": 6, "MaxVola": 0.15, "MaxPRC": 7, "EquityQuoteInPercent": 1.0},
+    {"Id": 19, "Name": "Anlageprofil 7", "Description": "Anlageprofil 7", "RiskLevel": 7, "MaxVola": 0.185, "MaxPRC": 7, "EquityQuoteInPercent": 1.0}
+  ],
+  "EsgProfiles": [
+    {"Id": 1, "Name": "Yes", "Level": 1, "ProfileType": "ESGPortfolio", "MinimumLevel": 5.714, "MaximumLevel": 10, "MinimumPositionLevel": 5.714},
+    {"Id": 2, "Name": "No", "Level": 2, "ProfileType": "ESGPortfolio", "MinimumLevel": 0.001, "MaximumLevel": 10, "MinimumPositionLevel": 0.001}
+  ],
+  "InvestmentServices": [
+    {"Id": 1, "Name": "Execution only", "IsVorsorge": false},
+    {"Id": 10, "Name": "Depository Advisory", "IsVorsorge": false}
+  ],
+  "Strategies": [
+    {"Id": 5, "Name": "Investor profile 5", "RiskLevel": 5, "VolatilityMinimum": 0.085, "VolatilityMaximum": 0.12},
+    {"Id": 8, "Name": "No strategy", "RiskLevel": 0, "VolatilityMinimum": 0.0, "VolatilityMaximum": 1.0}
+  ],
+  "StrategicAssetAllocations": [
+    {
+      "Id": 1, "Description": "Execution only / beratungsfreies Geschäft / CHF / Keine Strategie",
+      "InvestmentServiceId": 1, "StrategyId": 8, "ReferenceCurrency": "CHF",
+      "Mappings": [
+        {"Dimension": "AssetClass", "Category": "Liquidity", "MinPercentage": 0.0, "TargetPercentage": 0.0, "MaxPercentage": 1.0},
+        {"Dimension": "AssetClass", "Category": "Bonds", "MinPercentage": 0.0, "TargetPercentage": 0.0, "MaxPercentage": 1.0},
+        {"Dimension": "AssetClass", "Category": "Real estate", "MinPercentage": 0.0, "TargetPercentage": 0.0, "MaxPercentage": 1.0},
+        {"Dimension": "AssetClass", "Category": "Shares", "MinPercentage": 0.0, "TargetPercentage": 0.0, "MaxPercentage": 1.0},
+        {"Dimension": "AssetClass", "Category": "Specialties andCommodities", "MinPercentage": 0.0, "TargetPercentage": 0.0, "MaxPercentage": 1.0}
+      ]
+    },
+    {
+      "Id": 92, "Name": "Vorsorge Individuell - Depotberatung / CHF / Anlageprofil 5",
+      "Description": "Vorsorge Individuell - Depotberatung / CHF / Anlageprofil 5",
+      "InvestmentServiceId": 10, "StrategyId": 5, "ReferenceCurrency": "CHF",
+      "Mappings": [
+        {"Dimension": "AssetClass", "Category": "Shares", "MinPercentage": 0.2, "TargetPercentage": 0.45, "MaxPercentage": 0.85},
+        {"Dimension": "AssetClass", "Category": "Real estate", "MinPercentage": 0.0, "TargetPercentage": 0.05, "MaxPercentage": 0.15},
+        {"Dimension": "AssetClass", "Category": "Bonds", "MinPercentage": 0.1, "TargetPercentage": 0.47, "MaxPercentage": 0.7},
+        {"Dimension": "AssetClass", "Category": "Liquidity", "MinPercentage": 0.0, "TargetPercentage": 0.03, "MaxPercentage": 0.6},
+        {"Dimension": "AssetClass", "Category": "Specialties andCommodities", "MinPercentage": 0.0, "TargetPercentage": 0.0, "MaxPercentage": 0.2},
+        {"Dimension": "CurrencyGroup", "Category": "Swiss francs", "TargetPercentage": 0.515},
+        {"Dimension": "CurrencyGroup", "Category": "US-Dollar", "TargetPercentage": 0.305},
+        {"Dimension": "CurrencyGroup", "Category": "Euro", "TargetPercentage": 0.04},
+        {"Dimension": "CurrencyGroup", "Category": "Andere", "TargetPercentage": 0.14},
+        {"Dimension": "CountryGroup", "Category": "Switzerland", "TargetPercentage": 0.5157},
+        {"Dimension": "CountryGroup", "Category": "North America", "TargetPercentage": 0.31477},
+        {"Dimension": "CountryGroup", "Category": "Not classified"},
+        {"Dimension": "Industry", "Category": "Health Care", "TargetPercentage": 0.24347},
+        {"Dimension": "Industry", "Category": "Consumer Staples", "TargetPercentage": 0.15823},
+        {"Dimension": "Industry", "Category": "Information Technology", "TargetPercentage": 0.10949}
+      ]
+    }
+  ],
+  "Tags": [
+    {"Id": 1, "Name": "Switzerland", "TagTypeName": "Region"},
+    {"Id": 2, "Name": "Health Care", "TagTypeName": "Industry"}
+  ],
+  "RecommendationLists": [
+    {"Id": 1, "Name": "Recommendation list free assets", "Securities": [{"SecurityId": 101, "Isin": "CH0010570767"}, {"SecurityId": 104, "Isin": "CH0000000004"}]}
+  ],
+  "ProposalStatuses": [
+    {"Id": 1, "Name": "Entwurf", "IsArchived": false, "AllowTransactionSubmit": false},
+    {"Id": 3, "Name": "Final", "IsArchived": false, "AllowTransactionSubmit": true},
+    {"Id": 4, "Name": "Abgelehnt", "IsArchived": true, "AllowTransactionSubmit": false}
+  ],
+  "AdvisoryTypes": [
+    {"Id": 1, "Name": "Depot meeting", "IsProposal": false, "IsPortfolioReview": true},
+    {"Id": 2, "Name": "Investment proposal", "IsProposal": true, "IsPortfolioReview": false}
+  ]
+}

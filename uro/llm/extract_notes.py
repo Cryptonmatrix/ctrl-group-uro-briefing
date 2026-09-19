@@ -65,7 +65,10 @@ def _keyword_fallback_extract(notes: list[str]) -> list[ClientIntent]:
             continue
 
         # Exclusions / ESG
-        if any(kw in n_lower for kw in ["fossil", "tobacco", "weapon", "defense", "oil"]) or "no direct positions" in n_lower:
+        if (
+            any(kw in n_lower for kw in ["fossil", "tobacco", "weapon", "defense", "oil"])
+            or "no direct positions" in n_lower
+        ):
             intents.append(
                 ClientIntent(
                     kind="exclusion",
@@ -115,7 +118,7 @@ def extract_intents(notes: list[str], client: anthropic.Anthropic | None = None)
     except LLMUnavailable:
         return _keyword_fallback_extract(notes)
 
-    numbered_notes = "\n".join(f"{i+1}. {note}" for i, note in enumerate(notes))
+    numbered_notes = "\n".join(f"{i + 1}. {note}" for i, note in enumerate(notes))
 
     try:
         resp = client.messages.parse(

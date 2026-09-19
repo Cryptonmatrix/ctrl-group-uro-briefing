@@ -335,6 +335,26 @@ class Briefing(BaseModel):
         parts += [a.action + " " + a.rationale for a in self.next_best_actions]
         return sum(len(p.split()) for p in parts)
 
+    def model_post_init(self, context: object, /) -> None:
+        """Setzt die 60-Sekunden-Grenzen durch — bei jedem Weg, auf dem ein Briefing entsteht
+        (messages.parse, model_validate auf rohem JSON, Template-Fallback, Tests).
+
+        Die Grenzen dürfen NICHT als max_length im Schema stehen: Pydantic macht daraus maxItems,
+        und Structured Outputs lehnt das mit HTTP 400 ab (docs/blocker-models-schema.md).
+        Überzählige Einträge werden gekürzt; das Modell ordnet ohnehin nach Wichtigkeit.
+        """
+        for section in self.sections:
+            section.statements = section.statements[:MAX_STATEMENTS_PER_SECTION]
+        self.likely_questions = self.likely_questions[:MAX_LIKELY_QUESTIONS]
+        self.next_best_actions = self.next_best_actions[:MAX_NEXT_BEST_ACTIONS]
+
+
+# Die Längengrenzen des Briefings — hier statt im Schema (siehe Briefing.model_post_init).
+# Prompt und Validator können sie importieren, damit überall dieselben Zahlen gelten.
+MAX_STATEMENTS_PER_SECTION = 3
+MAX_LIKELY_QUESTIONS = 2
+MAX_NEXT_BEST_ACTIONS = 3
+
 
 class ValidationIssue(BaseModel):
     kind: str = Field(description="unsupported_number | unknown_finding_id | too_long | no_reference")

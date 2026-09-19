@@ -6,8 +6,9 @@ Volatile Findings und Klientendaten kommen in den User-Turn.
 
 from __future__ import annotations
 
+from uro.analytics.scoring import select_for_llm
 from uro.config import TOP_N_FOR_LLM
-from uro.models import FactSheet, FindingType
+from uro.models import FactSheet
 
 SYSTEM_PROMPT = """You are the briefing assistant in URO Advisor Pro for professional wealth managers at a Swiss private bank.
 
@@ -51,7 +52,13 @@ Rules:
 
 
 def render_fact_sheet(fact_sheet: FactSheet, max_findings: int = TOP_N_FOR_LLM) -> str:
-    """Renders FactSheet findings and context into compact, PII-free English text for the LLM."""
+    """Renders FactSheet findings and context into compact, PII-free English text for the LLM.
+
+    Selection via analytics.scoring.select_for_llm: the client profile ("profile") and the client notes
+    ("note-N") are ALWAYS included, regardless of their score; KEY FINDINGS are the max_findings
+    best-ranked other findings with type diversity. Without that guarantee, profile and notes dropped
+    out of the ranked window for 21 of 47 clients.
+    """
     fs = fact_sheet
     lines: list[str] = [
         f"CLIENT: {fs.client_ref}" + (" (Corporate Client)" if fs.is_company else " (Private Client)"),
@@ -94,21 +101,32 @@ def render_fact_sheet(fact_sheet: FactSheet, max_findings: int = TOP_N_FOR_LLM) 
                 sec_info = f"{pos.sector or pos.asset_class or ''}".strip()
                 lines.append(f"    {pos.weight_pct:5.1f}%  {pos.name[:40]:40} {sec_info}")
 
+    profile, notes, ranked = select_for_llm(fs, max_findings)
+
+    # Client profile — always included, independent of its score
+    for f in profile:
+        lines.append("\nCLIENT PROFILE (always relevant, cite the ID):")
+        lines.append(f"[{f.id}] {f.title}")
+        lines.append(f"      Detail: {f.detail}")
+        if f.numbers:
+            lines.append("      Numbers: " + "  ".join(f"{k}={v}" for k, v in f.numbers.items()))
+
     # Top findings
     lines.append("\nKEY FINDINGS (ranked, use ONLY these figures):")
-    for idx, f in enumerate(fs.top_findings(max_findings), 1):
+    for idx, f in enumerate(ranked, 1):
         nums = "  ".join(f"{k}={v}" for k, v in f.numbers.items())
         boosts = f" [Boosted: {', '.join(f.boost_reasons)}]" if f.boost_reasons else ""
-        lines.append(f"[{f.id}] (Rank {idx}, score {f.score:.2f}, {f.type.value}/{f.severity.value}) {f.title}{boosts}")
+        lines.append(
+            f"[{f.id}] (Rank {idx}, score {f.score:.2f}, {f.type.value}/{f.severity.value}) {f.title}{boosts}"
+        )
         lines.append(f"      Detail: {f.detail}")
         if nums:
             lines.append(f"      Numbers: {nums}")
 
-    # Client Notes (verbatim)
-    note_findings = [f for f in fs.findings if f.type == FindingType.CLIENT_NOTE]
-    if note_findings:
+    # Client Notes (verbatim, newest first) — always included
+    if notes:
         lines.append("\nCLIENT NOTES (verbatim):")
-        for nf in note_findings[:5]:
+        for nf in notes:
             lines.append(f"[{nf.id}] {nf.detail}")
 
     # Data gaps & warnings

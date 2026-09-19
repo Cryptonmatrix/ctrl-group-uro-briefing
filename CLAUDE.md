@@ -264,9 +264,11 @@ nach `main`. Klare Modul-Ownership hält die Konflikte klein — Merge-Hölle um
 }
 ```
 
-**Finding-IDs** (Plan §3.3): `<quelle>-<slug>`, stabil über Läufe. Bestehende IDs nicht umbenennen: `perf-<pnr>`,
-`conc-single-<pnr>`, `conc-sector-<pnr>`, `risk-breach-<pnr>`, `gap-profile-<pnr>`, `gap-vola-<pnr>`. Neu: `viol-<slug(RuleCode)>`,
-`saa-<dim>-<slug>`, `liq-*`, `prop-<id>`, `note-<n>`, `news-<n>`, `hv-<dim>-<slug>`, `profile`.
+**Finding-IDs** (Plan §3.3): `<quelle>-<slug>`, stabil über Läufe, nicht umbenennen. Je Portfolio: `perf-<pnr>`,
+`risk-breach-<pnr>`, `gap-profile-<pnr>`, `gap-vola-<pnr>`, `gap-portfolio-<pnr>`, `saa-none-<pnr>`. Je Klient: `profile`,
+`viol-<slug(RuleCode)>`, `saa-<dim>-<slug>`, `conc-single-<slug(Titel)>`, `conc-sector|currency|region-<slug>` (Konzentration
+seit A2 auf Klientenebene mit Look-through), `esg-*`, `liq-cash`, `liq-need`, `liq-maturity-<secid>`, `prop-<id>`,
+`rej-proposals`, `item-*`, `note-<n>`. Folgen: `news-<n>`, `hv-<dim>-<slug>`, `drv-<secid>`, `mkt-<secid>`.
 
 ### Findings-Scoring (die „Wie wählt euer System aus?"-Antwort der Jury)
 

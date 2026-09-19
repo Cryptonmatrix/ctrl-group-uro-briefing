@@ -81,10 +81,7 @@ def resolve_single_ticker(pos: PositionFact) -> str | None:
 def resolve_tickers(positions: list[PositionFact], max_positions: int = 15) -> dict[int, str]:
     """Resolves tickers for top positions in parallel."""
     # Filter for equities/ETFs, exclude cash/bonds
-    candidates = [
-        p for p in positions
-        if p.security_id and p.weight_pct > 0
-    ][:max_positions]
+    candidates = [p for p in positions if p.security_id and p.weight_pct > 0][:max_positions]
 
     resolved: dict[int, str] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
@@ -128,7 +125,10 @@ def fetch_prices(tickers: list[str], proxies: list[str] | None = None) -> dict[s
         if len(all_tickers) == 1:
             t = all_tickers[0]
             close_col = df["Close"] if "Close" in df else df
-            dates = [d.date() if isinstance(d, datetime) else date.fromisoformat(str(d)[:10]) for d in close_col.index]
+            dates = [
+                d.date() if isinstance(d, datetime) else date.fromisoformat(str(d)[:10])
+                for d in close_col.index
+            ]
             closes = [float(v) for v in close_col.values if not str(v) == "nan"]
             results[t] = PriceSeries(ticker=t, dates=dates, closes=closes)
         else:

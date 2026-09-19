@@ -92,6 +92,25 @@ Industry:      Health Care T=0.24347 · Consumer Staples T=0.15823 · Financials
 
 SAA-Keys: `Id`, `Description`, `InvestmentServiceId`, `StrategyId`, `ReferenceCurrency`, `Mappings`; **`Name` fehlt bei 3 von 16** → `saa.get("Name") or saa.get("Description")`.
 
+**Bezugsbasis der Targets (gemessen 2026-09-19, A2):** In allen 11 echten SAAs summieren sich die Targets **je Dimension** auf 1.000.
+Region (`CountryGroup`) und Branche (`Industry`) beziehen sich deshalb auf den **Aktienanteil**, nicht aufs ganze Portfolio; Währung und
+Asset-Klasse aufs ganze Portfolio. Gegenprobe an den `ViolationPath`-Werten der Bank (aktienrelativ, mit Fonds-Look-through gerechnet):
+
+| Klient | Regel | Bank `LeftValue` | unsere Rechnung aktienrelativ | portfoliorelativ |
+|---|---|---|---|---|
+| CASE-002 | Overweight in the equity sector "Industrials" | 0.1576 | **0.1576** | 0.0820 |
+| CASE-002 | Underweight in the equity sector "Consumer Staples" | 0.0882 | **0.0882** | 0.0459 |
+| CASE-004 | Overweight in the equity sector "Energy" | 0.0771 | 0.0526 | 0.0335 |
+
+Zwei exakte Treffer, ein Ausreisser (CASE-004 Energy — vermutlich andere Branchenzuordnung einzelner Titel; nicht weiter verfolgt).
+Die `ViolationPath`-Paare der Über-/Untergewichtsregeln sind (Ist, Obergrenze) und (Ist, Untergrenze) = Target ± 5 pp.
+
+**Look-through-Namen ≠ SAA-Namen:** `CountryGroupName` der Fonds-Zeilen ist `Equities North America`, `Equities Euroland`, `Equities Switzerland`,
+`Equities Pacific`, `Equities Japan`, `Aktien UK`, `Equities EmMa` → Mapping in `config.LOOKTHROUGH_COUNTRY_MAP`. `CurrencyGroupName` hat 43 Werte
+(`Japanese yen`, `Hong Kong Dollar`, …) → alles ausser Swiss francs / US-Dollar / Euro wird `Andere`. `AssetClassName` der Zeilen ist nur
+`Equities EmMa` / `Equities Switzerland`; alle 224 gehaltenen Look-through-Fonds sind laut `SAA_AssetClassName` "Shares" → für die Asset-Klasse
+kein Look-through nötig.
+
 ## 6. Fonds-Look-through
 
 - 141 der 226 Fonds haben Mappings (1 bis 2'958 Zeilen pro Fonds). `Weight` ist **0–100**, Summe 100 pro Fonds. **Negative Gewichte existieren** (min −15.05) → nicht auf ≥ 0 clampen, einfach summieren.
