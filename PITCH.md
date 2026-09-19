@@ -328,9 +328,18 @@ Sprache spricht, fügt es sich ein, statt danebenzustehen.
 
 ---
 
-## 12. Sprech-Drehbuch — 5 Minuten plus Fragen
+## 12. Sprech-Drehbuch — 6 Minuten plus 1 Minute Fragen
 
-**Aufteilung:** Vier Folien, eine Demo. Die Demo ist der Hauptteil, nicht die Folien.
+**Aufteilung:** Fünf Folien, eine Demo von drei Minuten — also die Hälfte der Zeit. Das ist
+Absicht: Bei einem laufenden Prototyp will die Jury sehen, nicht hören.
+
+| | | | | |
+|---|---|---|---|---|
+| Titel 0:00 | Problem 0:15 | **Demo 0:50–3:50** | Funktionsweise 3:50 | Beweis 4:35 · Produktion 5:20–6:00 |
+
+Der vollständige Sprechtext mit Begründung je Folie liegt ausserhalb des Repos in
+`KONTEXT-was-wir-sagen.md` — darin auch das Kontrastpaar CASE-012 gegen CASE-016, der Beat, für
+den die sechste Minute da ist.
 Die Jury will sehen, dass es läuft, nicht hören, dass es laufen würde.
 
 **Vorher zwingend:** Server läuft aus `~/dev/uro-briefing`, `.env` geladen, Demo-Klienten
