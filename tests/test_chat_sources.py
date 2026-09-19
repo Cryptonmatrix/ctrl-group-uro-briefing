@@ -14,7 +14,9 @@ def test_chat_answers_and_sources():
     # Question about top holding
     resp = answer("What is the client's largest stock holding?", fs)
     assert resp.answer
-    assert "Lindt" in resp.answer or "188" in resp.answer or "Chocolade" in resp.answer or "pos" in resp.answer
+    assert (
+        "Lindt" in resp.answer or "188" in resp.answer or "Chocolade" in resp.answer or "pos" in resp.answer
+    )
 
     # Question about unmentioned topic -> honest missing info
     resp_missing = answer("What are the client's private equity investments?", fs)

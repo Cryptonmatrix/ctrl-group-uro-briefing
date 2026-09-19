@@ -33,7 +33,9 @@ def total_aum(client: dict[str, Any]) -> float:
     aum = to_float(get(client, "AssetsUnderManagementInDefaultCurrency"))
     if aum > 0:
         return aum
-    return float(sum(to_float(get(p, "AssetsUnderManagementInDefaultCurrency")) for p in lst(client, "Portfolios")))
+    return float(
+        sum(to_float(get(p, "AssetsUnderManagementInDefaultCurrency")) for p in lst(client, "Portfolios"))
+    )
 
 
 def _maturity(sec: dict[str, Any]):
@@ -74,7 +76,9 @@ def security_positions(portfolio: dict[str, Any], ref: ReferenceIndex, total: fl
                 industry=get(sec, "SAA_IndustryName"),
                 country_group=get(sec, "SAA_CountryGroupName"),
                 currency_group=get(sec, "SAA_CurrencyGroupName"),
-                volatility=to_float(get(sec, "Volatility"), default=None) if get(sec, "Volatility") is not None else None,
+                volatility=to_float(get(sec, "Volatility"), default=None)
+                if get(sec, "Volatility") is not None
+                else None,
                 prc=int(to_float(prc)) if prc is not None else None,
                 sustainability_score=to_float(get(sec, "SustainabilityScore"), default=None)
                 if get(sec, "SustainabilityScore") is not None

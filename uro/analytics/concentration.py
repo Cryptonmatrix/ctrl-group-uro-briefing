@@ -56,7 +56,9 @@ def concentration_findings(fs: FactSheet, ref: ReferenceIndex) -> list[Finding]:
 
     # 1) Einzeltitel — über Portfolios hinweg je SecurityId aggregiert
     threshold, reference = CONCENTRATION["security"]
-    agg: dict[int, dict] = defaultdict(lambda: {"weight": 0.0, "amount": 0.0, "name": "", "portfolios": set()})
+    agg: dict[int, dict] = defaultdict(
+        lambda: {"weight": 0.0, "amount": 0.0, "name": "", "portfolios": set()}
+    )
     for p in securities:
         a = agg[p.security_id]
         a["weight"] += _weight(p)
@@ -81,7 +83,11 @@ def concentration_findings(fs: FactSheet, ref: ReferenceIndex) -> list[Finding]:
                 detail=(
                     f"{name} is {pct(weight)} of the client's assets ({chf(amount)}){where}. "
                     f"Above {threshold:.0%} a single position counts as a cluster risk"
-                    + (f", above {CONCENTRATION_SINGLE_ERROR:.0%} as severe." if severity == Severity.ERROR else ".")
+                    + (
+                        f", above {CONCENTRATION_SINGLE_ERROR:.0%} as severe."
+                        if severity == Severity.ERROR
+                        else "."
+                    )
                 ),
                 numbers={"weight_pct": weight, "amount_chf": amount},
                 security_ids=[sid],
@@ -92,16 +98,34 @@ def concentration_findings(fs: FactSheet, ref: ReferenceIndex) -> list[Finding]:
         )
 
     # 2) Branche (inkl. Look-through)
-    out += _bucket_findings(fs, ref, positions, exp["industry"], "industry", "conc-sector", "in sector", exclude=set())
+    out += _bucket_findings(
+        fs, ref, positions, exp["industry"], "industry", "conc-sector", "in sector", exclude=set()
+    )
 
     # 3) Fremdwährung (ohne Reporting-Währung)
     home_ccy = REPORTING_CURRENCY_GROUP.get(fs.reporting_currency, "")
-    out += _bucket_findings(fs, ref, positions, exp["currency_group"], "currency_group", "conc-currency", "in currency", exclude={home_ccy})
+    out += _bucket_findings(
+        fs,
+        ref,
+        positions,
+        exp["currency_group"],
+        "currency_group",
+        "conc-currency",
+        "in currency",
+        exclude={home_ccy},
+    )
 
     # 4) Region (ohne Heimatregion und Sammelbuckets)
     home_region = HOME_COUNTRY_GROUP.get(fs.reporting_currency, "")
     out += _bucket_findings(
-        fs, ref, positions, exp["country_group"], "country_group", "conc-region", "in region", exclude=IGNORED_REGION_BUCKETS | {home_region}
+        fs,
+        ref,
+        positions,
+        exp["country_group"],
+        "country_group",
+        "conc-region",
+        "in region",
+        exclude=IGNORED_REGION_BUCKETS | {home_region},
     )
     return out
 

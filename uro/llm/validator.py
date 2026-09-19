@@ -67,7 +67,9 @@ def _covered(value: float, allowed: set[float]) -> bool:
     return any(abs(value - a) <= max(0.05, abs(a) * 0.01) for a in allowed)
 
 
-def validate(briefing: Briefing | tuple[Briefing, str], fact_sheet: FactSheet) -> tuple[Briefing, list[ValidationIssue]]:
+def validate(
+    briefing: Briefing | tuple[Briefing, str], fact_sheet: FactSheet
+) -> tuple[Briefing, list[ValidationIssue]]:
     """Validates Briefing against FactSheet. Removes invalid statements and returns issues."""
     if isinstance(briefing, tuple):
         briefing = briefing[0]

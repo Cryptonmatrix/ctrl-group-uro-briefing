@@ -47,7 +47,11 @@ def open_item_findings(fs: FactSheet, client: dict[str, Any]) -> list[Finding]:
                 if p.saa_asset_class == "Shares":
                     equity += p.client_weight_pct if p.client_weight_pct is not None else p.weight_pct
             for line in pf.allocation:
-                if line.dimension == "AssetClass" and line.category == "Shares" and line.target_pct is not None:
+                if (
+                    line.dimension == "AssetClass"
+                    and line.category == "Shares"
+                    and line.target_pct is not None
+                ):
                     target = line.target_pct
         threshold = target if target is not None else 60.0
         equity = num(equity)

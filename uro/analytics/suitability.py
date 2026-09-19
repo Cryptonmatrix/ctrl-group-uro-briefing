@@ -94,7 +94,9 @@ def violation_findings(
     out: list[Finding] = []
     for code, items in groups.items():
         is_error = any(get(v, "Severity") == "Error" for v in items)
-        pnrs = sorted({portfolio_nr_by_id.get(get(v, "PortfolioId")) or str(get(v, "PortfolioId", "")) for v in items})
+        pnrs = sorted(
+            {portfolio_nr_by_id.get(get(v, "PortfolioId")) or str(get(v, "PortfolioId", "")) for v in items}
+        )
 
         affected: list[tuple[bool, float, str, int | None, tuple[float, float] | None]] = []
         for v in items:
@@ -120,7 +122,9 @@ def violation_findings(
                 continue
             label = name or "portfolio"
             d = _digits(*limits)
-            per_security.append(f"{label}: {pct(limits[0] * 100, digits=d)} vs limit {pct(limits[1] * 100, digits=d)}")
+            per_security.append(
+                f"{label}: {pct(limits[0] * 100, digits=d)} vs limit {pct(limits[1] * 100, digits=d)}"
+            )
         if per_security:
             detail_parts.append("Actual vs limit — " + "; ".join(per_security) + ".")
         if worst and worst[4]:
@@ -210,9 +214,13 @@ def risk_profile_findings(
         quoted = ", ".join(f"'{c}'" for c in vola_codes)
         notes.append(f"The rule engine flags this too: {quoted}.")
     elif reported == 0:
-        notes.append("The rule engine reports 0 violations for this client — the breach is invisible in the standard violation list.")
+        notes.append(
+            "The rule engine reports 0 violations for this client — the breach is invisible in the standard violation list."
+        )
     else:
-        notes.append(f"The rule engine reports {reported} violation(s) for this client, but none of them concerns volatility.")
+        notes.append(
+            f"The rule engine reports {reported} violation(s) for this client, but none of them concerns volatility."
+        )
 
     return [
         Finding(

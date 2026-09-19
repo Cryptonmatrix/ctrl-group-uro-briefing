@@ -16,17 +16,24 @@ from uro.analytics import build_fact_sheet
 from uro.ingest import find_client, load_clients, load_reference
 from uro.models import FactSheet
 
-COLORS = {"fact": "\033[37m", "market": "\033[36m", "house_view": "\033[35m",
-          "recommendation": "\033[32m", "risk": "\033[31m"}
+COLORS = {
+    "fact": "\033[37m",
+    "market": "\033[36m",
+    "house_view": "\033[35m",
+    "recommendation": "\033[32m",
+    "risk": "\033[31m",
+}
 RESET = "\033[0m"
 BOLD = "\033[1m"
 
 
 def print_facts(fs: FactSheet, elapsed: float) -> None:
     print(f"\n{BOLD}FACT SHEET {fs.client_ref}{RESET}   (Engine: {elapsed * 1000:.0f} ms)")
-    print(f"  Vermögen {fs.total_aum_chf:,.0f} {fs.reporting_currency} · "
-          f"Liquidität {fs.total_liquidity_chf:,.0f} · "
-          f"Profil {fs.risk_profile_name or 'keins'} · {len(fs.findings)} Findings")
+    print(
+        f"  Vermögen {fs.total_aum_chf:,.0f} {fs.reporting_currency} · "
+        f"Liquidität {fs.total_liquidity_chf:,.0f} · "
+        f"Profil {fs.risk_profile_name or 'keins'} · {len(fs.findings)} Findings"
+    )
     print(f"\n{BOLD}  Top-Findings{RESET}")
     for f in fs.top_findings(6):
         color = COLORS["risk"] if f.severity.value == "error" else ""
@@ -83,7 +90,9 @@ def main(argv: list[str]) -> int:
     settings = get_settings()
     has_key = bool(settings.anthropic_api_key or settings.gemini_api_key or settings.google_api_key)
     if not has_key:
-        print(f"\n  {COLORS['risk']}Kein API-Key (ANTHROPIC_API_KEY oder GEMINI_API_KEY) in .env gefunden.{RESET}")
+        print(
+            f"\n  {COLORS['risk']}Kein API-Key (ANTHROPIC_API_KEY oder GEMINI_API_KEY) in .env gefunden.{RESET}"
+        )
         print("  Key in .env eintragen für KI-Briefings.")
         return 1
 
@@ -95,8 +104,7 @@ def main(argv: list[str]) -> int:
     try:
         briefing, mode = generate_briefing(fs)  # Kette Claude → Gemini → Template, liefert immer ein Briefing
     except LLMError as exc:
-        print(f"\n  {COLORS['risk']}{type(exc).__name__} nach "
-              f"{time.perf_counter() - t1:.0f}s: {exc}{RESET}")
+        print(f"\n  {COLORS['risk']}{type(exc).__name__} nach {time.perf_counter() - t1:.0f}s: {exc}{RESET}")
         return 1
 
     briefing, issues = validate(briefing, fs)

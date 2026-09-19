@@ -39,7 +39,11 @@ REASON_LIQUIDITY = "client needs liquidity (notes)"
 REASON_SHARED = "same position as other key finding"
 REASON_OVERDUE = "overdue follow-up"
 REASON_MATERIAL_CHANGE = "material change since last contact"
-SCORING_REASONS = {REASON_RISK_AVERSE, REASON_LIQUIDITY, REASON_SHARED}  # vom Scoring gesetzt, bei jedem Lauf neu
+SCORING_REASONS = {
+    REASON_RISK_AVERSE,
+    REASON_LIQUIDITY,
+    REASON_SHARED,
+}  # vom Scoring gesetzt, bei jedem Lauf neu
 OVERDUE_BOOST = 1.1  # Spec §5.13: offenes Proposal > 60 Tage → ×1.1
 KEY_FINDING_WEIGHT = 0.7  # "anderes Schlüssel-Finding" = Grundgewicht ≥ 0.7
 RISK_TYPES = {FindingType.RISK_PROFILE, FindingType.CONCENTRATION, FindingType.MARKET_COMPARISON}
@@ -53,7 +57,9 @@ def _note_order(f: Finding) -> int:
     return int(tail) if tail.isdigit() else 999
 
 
-def select_for_llm(fs: FactSheet, top_n: int = TOP_N_FOR_LLM) -> tuple[list[Finding], list[Finding], list[Finding]]:
+def select_for_llm(
+    fs: FactSheet, top_n: int = TOP_N_FOR_LLM
+) -> tuple[list[Finding], list[Finding], list[Finding]]:
     """Was das Briefing-Modell sieht: (profile, notes, ranked).
 
     Profil und Notizen sind IMMER dabei — unabhängig vom Score (Contract: "Profil immer im LLM-Kontext").
@@ -80,7 +86,9 @@ def base_weight(f: Finding) -> float:
 
 
 def _is_negative_performance(f: Finding) -> bool:
-    return f.type in (FindingType.PERFORMANCE, FindingType.PERFORMANCE_DRIVER) and f.severity == Severity.WARNING
+    return (
+        f.type in (FindingType.PERFORMANCE, FindingType.PERFORMANCE_DRIVER) and f.severity == Severity.WARNING
+    )
 
 
 def score_findings(findings: list[Finding], fs: FactSheet) -> list[Finding]:
@@ -108,7 +116,9 @@ def score_findings(findings: list[Finding], fs: FactSheet) -> list[Finding]:
         if conservative and (f.type in RISK_TYPES or negative_perf):
             boost *= BOOST_RISK_AVERSE
             reasons.append(REASON_RISK_AVERSE)
-        shares_over_target = f.id.startswith("saa-assetclass-shares") and f.numbers.get("deviation_pp", 0.0) > 0
+        shares_over_target = (
+            f.id.startswith("saa-assetclass-shares") and f.numbers.get("deviation_pp", 0.0) > 0
+        )
         if needs_liquidity and (f.type == FindingType.LIQUIDITY or negative_perf or shares_over_target):
             boost *= BOOST_LIQUIDITY_NEED
             reasons.append(REASON_LIQUIDITY)
@@ -126,7 +136,11 @@ def score_findings(findings: list[Finding], fs: FactSheet) -> list[Finding]:
         recency = 1.0
         if REASON_MATERIAL_CHANGE in reasons:
             recency = RECENCY_MATERIAL_CHANGE
-        elif f.type in STALE_CONTEXT_TYPES and f.recency_days is not None and f.recency_days > RECENCY_STALE_MONTHS * 30:
+        elif (
+            f.type in STALE_CONTEXT_TYPES
+            and f.recency_days is not None
+            and f.recency_days > RECENCY_STALE_MONTHS * 30
+        ):
             recency = RECENCY_STALE_CONTEXT
 
         materiality = max(MATERIALITY_MIN, min(1.0, f.materiality_chf / aum))

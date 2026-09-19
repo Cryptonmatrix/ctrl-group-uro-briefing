@@ -167,14 +167,18 @@ def build_fact_sheet(client: dict[str, Any], reference: dict[str, Any]) -> FactS
         reporting_currency=str(get(client, "ReportingCurrency", "CHF")),
         risk_profile_name=get(client, "RiskProfileName") or (get(profile, "Name") if profile else None),
         max_volatility=_optional_float(get(profile, "MaxVola")) if profile else None,
-        max_prc=int(to_float(get(profile, "MaxPRC"))) if profile and get(profile, "MaxPRC") is not None else None,
+        max_prc=int(to_float(get(profile, "MaxPRC")))
+        if profile and get(profile, "MaxPRC") is not None
+        else None,
         esg_profile=get(client, "EsgProfileName"),
         total_aum_chf=aum,
         total_liquidity_chf=to_float(get(client, "LiquidityInDefaultCurrency")),
         tags=[str(get(t, "TagName", "")) for t in lst(client, "Tags") if get(t, "TagName")],
         open_proposals=len(open_proposals(client)),
         age=get(client, "_Age"),
-        risk_level=int(to_float(get(profile, "RiskLevel"))) if profile and get(profile, "RiskLevel") is not None else None,
+        risk_level=int(to_float(get(profile, "RiskLevel")))
+        if profile and get(profile, "RiskLevel") is not None
+        else None,
         history_as_of=client_history_as_of(client),
         data_as_of=client_data_as_of(client),
         note_flags=note_flags(client),
@@ -199,7 +203,8 @@ def build_fact_sheet(client: dict[str, Any], reference: dict[str, Any]) -> FactS
         by_portfolio[pos.portfolio_nr or "?"].append(pos)
 
     portfolio_nr_by_id: dict[Any, str] = {
-        get(p, "PortfolioId"): str(get(p, "PortfolioNr") or get(p, "PortfolioId") or "?") for p in lst(client, "Portfolios")
+        get(p, "PortfolioId"): str(get(p, "PortfolioNr") or get(p, "PortfolioId") or "?")
+        for p in lst(client, "Portfolios")
     }
 
     findings: list[Finding] = []
@@ -232,7 +237,9 @@ def build_fact_sheet(client: dict[str, Any], reference: dict[str, Any]) -> FactS
 
         # Ist-Allokation vs. SAA (mit Look-through) — Fehler hier kostet nur die Allokation, nicht das Portfolio
         try:
-            pf.allocation = build_allocation(pf.positions, ref.saa(get(p, "StrategicAssetAllocationId")), ref, pf.has_real_saa)
+            pf.allocation = build_allocation(
+                pf.positions, ref.saa(get(p, "StrategicAssetAllocationId")), ref, pf.has_real_saa
+            )
             if not coverage.get("allocation", "").startswith("error"):
                 coverage["allocation"] = "ok"
         except Exception as exc:  # noqa: BLE001
@@ -241,7 +248,15 @@ def build_fact_sheet(client: dict[str, Any], reference: dict[str, Any]) -> FactS
 
         since = return_since(pf.history, last_contact)
         findings += _run(
-            coverage, "performance", performance_findings, pnr, returns, p_aum, fs.history_as_of, since, last_contact
+            coverage,
+            "performance",
+            performance_findings,
+            pnr,
+            returns,
+            p_aum,
+            fs.history_as_of,
+            since,
+            last_contact,
         )
         findings += _run(coverage, "risk_profile", risk_profile_findings, client, clean, profile, p_aum)
 

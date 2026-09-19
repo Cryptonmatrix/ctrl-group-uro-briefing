@@ -76,8 +76,9 @@ def test_generate_briefing_gemini_mocked():
         ]
     }
 
-    with patch("httpx.Client.post", return_value=mock_resp), patch(
-        "uro.llm.gemini.get_gemini_api_key", return_value="fake-gemini-key"
+    with (
+        patch("httpx.Client.post", return_value=mock_resp),
+        patch("uro.llm.gemini.get_gemini_api_key", return_value="fake-gemini-key"),
     ):
         briefing = generate_briefing_gemini(fs)
         assert isinstance(briefing, Briefing)
@@ -100,9 +101,11 @@ def test_briefing_failover_to_gemini_when_anthropic_missing():
     }
 
     # Simulate Anthropic key missing, but Gemini available
-    with patch("httpx.Client.post", return_value=mock_resp), patch(
-        "uro.llm.gemini.get_gemini_api_key", return_value="fake-gemini-key"
-    ), patch.dict("os.environ", {"ANTHROPIC_API_KEY": ""}):
+    with (
+        patch("httpx.Client.post", return_value=mock_resp),
+        patch("uro.llm.gemini.get_gemini_api_key", return_value="fake-gemini-key"),
+        patch.dict("os.environ", {"ANTHROPIC_API_KEY": ""}),
+    ):
         briefing, mode = generate_briefing(fs)
         assert mode == "ai_gemini"
         assert isinstance(briefing, Briefing)
@@ -112,11 +115,11 @@ def test_briefing_failover_to_gemini_when_anthropic_missing():
 def test_briefing_full_failover_to_fallback():
     fs = _make_fs()
     # When both Anthropic and Gemini fail/are unconfigured
-    with patch("uro.llm.gemini.get_gemini_api_key", side_effect=LLMUnavailable("No key")), patch.dict(
-        "os.environ", {"ANTHROPIC_API_KEY": ""}
+    with (
+        patch("uro.llm.gemini.get_gemini_api_key", side_effect=LLMUnavailable("No key")),
+        patch.dict("os.environ", {"ANTHROPIC_API_KEY": ""}),
     ):
         briefing, mode = generate_briefing(fs)
         assert mode == "fallback"
         assert isinstance(briefing, Briefing)
         assert len(briefing.sections) == 3
-

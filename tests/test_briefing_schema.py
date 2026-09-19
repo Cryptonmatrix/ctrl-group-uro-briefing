@@ -54,10 +54,19 @@ def _statement(i: int) -> dict:
 def _raw_briefing(n_statements: int, n_questions: int, n_actions: int) -> dict:
     return {
         "headline": "Headline",
-        "sections": [{"title": f"Section {s}", "statements": [_statement(i) for i in range(n_statements)]} for s in range(3)],
+        "sections": [
+            {"title": f"Section {s}", "statements": [_statement(i) for i in range(n_statements)]}
+            for s in range(3)
+        ],
         "likely_questions": [{"question": f"Q{i}?", "answer_hint": "A"} for i in range(n_questions)],
         "next_best_actions": [
-            {"action": f"Action {i}", "rationale": "R", "finding_ids": ["profile"], "priority": 1, "kind": "rebalance"}
+            {
+                "action": f"Action {i}",
+                "rationale": "R",
+                "finding_ids": ["profile"],
+                "priority": 1,
+                "kind": "rebalance",
+            }
             for i in range(n_actions)
         ],
     }
@@ -69,7 +78,11 @@ def test_limits_are_enforced_after_parsing_raw_json():
     assert all(len(s.statements) == MAX_STATEMENTS_PER_SECTION for s in b.sections)
     assert len(b.likely_questions) == MAX_LIKELY_QUESTIONS
     assert len(b.next_best_actions) == MAX_NEXT_BEST_ACTIONS
-    assert [a.action for a in b.next_best_actions] == ["Action 0", "Action 1", "Action 2"]  # Reihenfolge bleibt
+    assert [a.action for a in b.next_best_actions] == [
+        "Action 0",
+        "Action 1",
+        "Action 2",
+    ]  # Reihenfolge bleibt
 
 
 def test_short_briefings_are_untouched():

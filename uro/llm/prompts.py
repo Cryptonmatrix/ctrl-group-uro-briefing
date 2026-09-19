@@ -116,7 +116,9 @@ def render_fact_sheet(fact_sheet: FactSheet, max_findings: int = TOP_N_FOR_LLM) 
     for idx, f in enumerate(ranked, 1):
         nums = "  ".join(f"{k}={v}" for k, v in f.numbers.items())
         boosts = f" [Boosted: {', '.join(f.boost_reasons)}]" if f.boost_reasons else ""
-        lines.append(f"[{f.id}] (Rank {idx}, score {f.score:.2f}, {f.type.value}/{f.severity.value}) {f.title}{boosts}")
+        lines.append(
+            f"[{f.id}] (Rank {idx}, score {f.score:.2f}, {f.type.value}/{f.severity.value}) {f.title}{boosts}"
+        )
         lines.append(f"      Detail: {f.detail}")
         if nums:
             lines.append(f"      Numbers: {nums}")

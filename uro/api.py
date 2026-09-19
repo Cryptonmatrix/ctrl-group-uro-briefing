@@ -69,14 +69,16 @@ def health() -> dict[str, Any]:
 def list_clients() -> list[dict[str, Any]]:
     out = []
     for c in _clients:
-        out.append({
-            "ref": get(c, "ClientRef"),
-            "name": c.get("_DisplayName") or display_name(c),
-            "aum": get(c, "AssetsUnderManagementInDefaultCurrency", 0.0),
-            "currency": get(c, "ReportingCurrency", "CHF"),
-            "risk_profile": get(c, "RiskProfileName"),
-            "is_company": bool(get(c, "IsClientACompany", False)),
-        })
+        out.append(
+            {
+                "ref": get(c, "ClientRef"),
+                "name": c.get("_DisplayName") or display_name(c),
+                "aum": get(c, "AssetsUnderManagementInDefaultCurrency", 0.0),
+                "currency": get(c, "ReportingCurrency", "CHF"),
+                "risk_profile": get(c, "RiskProfileName"),
+                "is_company": bool(get(c, "IsClientACompany", False)),
+            }
+        )
     return sorted(out, key=lambda x: x["ref"])
 
 
@@ -114,8 +116,11 @@ def client_briefing(ref: str) -> dict[str, Any]:
     try:
         briefing, issues = validate(generate_briefing(fs), fs)
     except LLMTimeout as exc:
-        raise HTTPException(status_code=504, detail=f"{exc} Die Befunde der Engine stehen "
-                            "unten — sie stammen aus echten Daten und sind unabhängig vom Modell.") from None
+        raise HTTPException(
+            status_code=504,
+            detail=f"{exc} Die Befunde der Engine stehen "
+            "unten — sie stammen aus echten Daten und sind unabhängig vom Modell.",
+        ) from None
     except LLMAuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from None
     except LLMRateLimit as exc:
@@ -124,7 +129,10 @@ def client_briefing(ref: str) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail=str(exc)) from None
 
     result = BriefingResult(
-        client_ref=ref, briefing=briefing, fact_sheet=fs, issues=issues,
+        client_ref=ref,
+        briefing=briefing,
+        fact_sheet=fs,
+        issues=issues,
         generation_seconds=round(time.perf_counter() - t0, 2),
     )
     return result.model_dump(mode="json")

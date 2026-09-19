@@ -34,7 +34,12 @@ def esg_findings(fs: FactSheet, client: dict[str, Any], ref: ReferenceIndex) -> 
     if min_position <= 0 and min_level <= 0:
         return []
 
-    scored = [p for pf in fs.portfolios for p in pf.positions if not is_cash(p) and p.sustainability_score is not None]
+    scored = [
+        p
+        for pf in fs.portfolios
+        for p in pf.positions
+        if not is_cash(p) and p.sustainability_score is not None
+    ]
     if not scored:
         return []
 
@@ -49,7 +54,10 @@ def esg_findings(fs: FactSheet, client: dict[str, Any], ref: ReferenceIndex) -> 
     if below and min_position > 0:
         min_pos = num(min_position)
         worst = num(min(p.sustainability_score for p in below))
-        listed = "; ".join(f"{truncate(p.name, 45)} (score {num(p.sustainability_score)}, {pct(num(_weight(p)))} of assets)" for p in below[:3])
+        listed = "; ".join(
+            f"{truncate(p.name, 45)} (score {num(p.sustainability_score)}, {pct(num(_weight(p)))} of assets)"
+            for p in below[:3]
+        )
         share = num(sum(_weight(p) for p in below))
         out.append(
             Finding(

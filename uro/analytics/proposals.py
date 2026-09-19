@@ -64,7 +64,9 @@ def _proposed(p: dict[str, Any]) -> date | None:
 
 def _top_positions(p: dict[str, Any], ref: ReferenceIndex, n: int = 3) -> str:
     """Die grössten vorgeschlagenen Positionen: 'Swiss Confederation 1.5% 2027 8.0%'. Join über ISIN (keine SecurityId)."""
-    rows = sorted(lst(p, "SecurityPositions"), key=lambda s: -abs(to_float(get(s, "ProposalValuePercentage"))))[:n]
+    rows = sorted(
+        lst(p, "SecurityPositions"), key=lambda s: -abs(to_float(get(s, "ProposalValuePercentage")))
+    )[:n]
     parts = []
     for s in rows:
         sec = ref.security_by_isin(get(s, "Isin")) or {}
@@ -100,7 +102,9 @@ def proposal_findings(
         if notes:
             detail_parts.append(f"Notes: '{truncate(str(notes), 160)}'.")
         if overdue:
-            detail_parts.append(f"Open for more than {PROPOSAL_FOLLOW_UP_DAYS} days — follow up in the conversation.")
+            detail_parts.append(
+                f"Open for more than {PROPOSAL_FOLLOW_UP_DAYS} days — follow up in the conversation."
+            )
 
         out.append(
             Finding(

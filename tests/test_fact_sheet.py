@@ -212,7 +212,9 @@ def test_structurally_broken_portfolio_yields_gap_finding(mini_clients, mini_ref
     bad = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
     bad["Portfolios"][0]["PerformanceHistory"] = "corrupt"  # kein Array
     bad["Portfolios"][0]["Name"] = {"unexpected": "object"}  # str(...) klappt, aber:
-    bad["Portfolios"][0]["SecurityPositions"] = [{"SecurityId": "x", "TotalAmountInPortfolioCurrency": {"a": 1}}]
+    bad["Portfolios"][0]["SecurityPositions"] = [
+        {"SecurityId": "x", "TotalAmountInPortfolioCurrency": {"a": 1}}
+    ]
     fs = build_fact_sheet(bad, mini_reference)
     assert fs.client_ref == "CASE-A01"
     assert "profile" in {f.id for f in fs.findings}
@@ -223,14 +225,53 @@ def test_structurally_broken_portfolio_yields_gap_finding(mini_clients, mini_ref
 def test_violation_path_ignores_booleans_and_non_weight_fields():
     from uro.analytics.suitability import _limit_from_path
 
-    assert _limit_from_path({"ViolationPath": [{"FieldName": "PositionIsSecurityRuleField`1", "LeftValue": True, "RightValue": True}]}) is None
-    assert _limit_from_path({"ViolationPath": [{"FieldName": "ClientHasKnowledgeInProductClassRuleField`1", "LeftValue": 1.0, "RightValue": 1.0}]}) is None
-    assert _limit_from_path({"ViolationPath": [{"FieldName": "RegulatoryClientTypeRuleField`1", "LeftValue": 13.0, "RightValue": 13.0}]}) is None
+    assert (
+        _limit_from_path(
+            {
+                "ViolationPath": [
+                    {"FieldName": "PositionIsSecurityRuleField`1", "LeftValue": True, "RightValue": True}
+                ]
+            }
+        )
+        is None
+    )
+    assert (
+        _limit_from_path(
+            {
+                "ViolationPath": [
+                    {
+                        "FieldName": "ClientHasKnowledgeInProductClassRuleField`1",
+                        "LeftValue": 1.0,
+                        "RightValue": 1.0,
+                    }
+                ]
+            }
+        )
+        is None
+    )
+    assert (
+        _limit_from_path(
+            {
+                "ViolationPath": [
+                    {"FieldName": "RegulatoryClientTypeRuleField`1", "LeftValue": 13.0, "RightValue": 13.0}
+                ]
+            }
+        )
+        is None
+    )
     assert _limit_from_path(
-        {"ViolationPath": [{"FieldName": "PositionPortfolioValueRuleField`1", "LeftValue": 0.6, "RightValue": 0.5}]}
+        {
+            "ViolationPath": [
+                {"FieldName": "PositionPortfolioValueRuleField`1", "LeftValue": 0.6, "RightValue": 0.5}
+            ]
+        }
     ) == (0.6, 0.5)
     assert _limit_from_path(
-        {"ViolationPath": [{"FieldName": "SimulationVolatilityRuleField`1", "LeftValue": 0.1186, "RightValue": 0.115}]}
+        {
+            "ViolationPath": [
+                {"FieldName": "SimulationVolatilityRuleField`1", "LeftValue": 0.1186, "RightValue": 0.115}
+            ]
+        }
     ) == (0.1186, 0.115)
 
 
@@ -239,8 +280,22 @@ def test_vola_breach_names_the_rule_when_the_engine_sees_it_too(mini_clients, mi
 
     client = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
     client["SuitabilityViolations"] = [
-        {"Id": 9, "RuleCode": "Compliance with maximum volatility", "RuleDescription": "x", "ErrorLevel": 2, "Severity": "Error", "PortfolioId": 1},
-        {"Id": 10, "RuleCode": "Knowledge of structured products", "RuleDescription": "y", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 1},
+        {
+            "Id": 9,
+            "RuleCode": "Compliance with maximum volatility",
+            "RuleDescription": "x",
+            "ErrorLevel": 2,
+            "Severity": "Error",
+            "PortfolioId": 1,
+        },
+        {
+            "Id": 10,
+            "RuleCode": "Knowledge of structured products",
+            "RuleDescription": "y",
+            "ErrorLevel": 1,
+            "Severity": "Warning",
+            "PortfolioId": 1,
+        },
     ]
     fs = build_fact_sheet(client, mini_reference)
     (breach,) = _find(fs, "risk-breach-")
@@ -255,7 +310,14 @@ def test_vola_breach_with_unrelated_violations_says_so(mini_clients, mini_refere
 
     client = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
     client["SuitabilityViolations"] = [
-        {"Id": 11, "RuleCode": "Knowledge of structured products", "RuleDescription": "y", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 1},
+        {
+            "Id": 11,
+            "RuleCode": "Knowledge of structured products",
+            "RuleDescription": "y",
+            "ErrorLevel": 1,
+            "Severity": "Warning",
+            "PortfolioId": 1,
+        },
     ]
     fs = build_fact_sheet(client, mini_reference)
     (breach,) = _find(fs, "risk-breach-")
@@ -269,7 +331,11 @@ def test_vola_breach_with_unrelated_violations_says_so(mini_clients, mini_refere
 def test_every_number_appears_in_text(fact_sheets):
     for fs in fact_sheets.values():
         for f in fs.findings:
-            text_numbers = {float(t.replace(",", "")) for t in NUMBER.findall(f.title + " " + f.detail) if t not in {"-", "."}}
+            text_numbers = {
+                float(t.replace(",", ""))
+                for t in NUMBER.findall(f.title + " " + f.detail)
+                if t not in {"-", "."}
+            }
             for key, value in f.numbers.items():
                 assert any(abs(value - t) <= max(0.05, abs(t) * 0.01) for t in text_numbers), (
                     f"{fs.client_ref} {f.id}: numbers[{key}]={value} fehlt im Text: {f.title} | {f.detail}"

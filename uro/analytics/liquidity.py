@@ -32,7 +32,11 @@ def _saa_liquidity_target_pct(fs: FactSheet) -> float | None:
         if not pf.has_real_saa:
             continue
         for line in pf.allocation:
-            if line.dimension == "AssetClass" and line.category == "Liquidity" and line.target_pct is not None:
+            if (
+                line.dimension == "AssetClass"
+                and line.category == "Liquidity"
+                and line.target_pct is not None
+            ):
                 return line.target_pct
     return None
 
