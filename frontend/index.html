@@ -184,6 +184,7 @@ button{font:inherit;cursor:pointer}
     <button class="action">Notizen</button>
     <button class="action">Analyse</button>
     <button class="action">Kundeninformation</button>
+    <button class="action" id="report" disabled title="Erst ein Briefing erzeugen">Protokoll</button>
     <button class="action primary" id="gen" disabled>Generate Briefing</button>
   </div>
 </div>
@@ -240,6 +241,8 @@ async function select(ref){
   $('#mcontact').textContent = fs.last_contact ? fs.last_contact.slice(0,10) : '—';
   $('#mtotal').textContent = `${fs.reporting_currency} ${chf(fs.total_aum_chf)}`;
   $('#gen').disabled = false;
+  $('#report').disabled = true;
+  $('#report').title = 'Erst ein Briefing erzeugen';
   renderFacts(d);
 }
 
@@ -504,6 +507,9 @@ function countWords(b){
 function renderBriefing(d){
   const b = d.briefing;
   markSources(b, d.fact_sheet?.coverage);
+  const rep = $('#report');
+  rep.disabled = false;
+  rep.title = 'Gesprächsprotokoll öffnen und drucken';
   const badge = $('#modebadge');
   if(badge){
     badge.className = 'modebadge m-' + (d.mode||'ai');
@@ -536,6 +542,14 @@ function renderBriefing(d){
                          :'· <b style="color:var(--green)">Validator sauber</b>'}</span>
     </div>`;
 }
+
+// ---- Protokoll nach dem Gespraech ------------------------------------------
+// Neues Fenster statt Download: der Berater sieht es sofort und druckt es ueber
+// den Browser als PDF. Kein Server-seitiges PDF, keine zusaetzliche Bibliothek.
+$('#report').onclick = () => {
+  if(!current) return;
+  window.open(`/api/clients/${current}/report`, '_blank');
+};
 
 // ---- Upload eines unbekannten Klienten -------------------------------------
 $('#uploadbtn').onclick = () => $('#uploadinput').click();

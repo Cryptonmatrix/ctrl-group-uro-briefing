@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from uro.analytics import build_fact_sheet
@@ -66,6 +66,7 @@ _new_refs: set[str] = set()
 # Letztes Briefing je Klient — der Chat antwortet gegen denselben Kontext,
 # aus dem das Briefing entstand. Sonst widersprechen sich die beiden.
 _briefings: dict[str, Any] = {}
+_modes: dict[str, str] = {}
 
 # Zeitbudget fuer Kurse und News. Lieber ein Briefing ohne Marktkontext als
 # eines, das auf der Buehne nicht kommt.
@@ -205,6 +206,7 @@ def client_briefing(ref: str) -> dict[str, Any]:
     llm_ms = int((time.perf_counter() - t_llm) * 1000)
 
     _briefings[ref] = briefing
+    _modes[ref] = mode
     result = BriefingResult(
         client_ref=ref,
         briefing=briefing,
@@ -248,6 +250,32 @@ async def upload(
         "refs": result.added_client_refs,
         "filename": ", ".join(f.filename or "upload.json" for f in uploads),
     }
+
+
+@app.get("/api/clients/{ref}/report", response_class=HTMLResponse)
+def client_report(ref: str) -> str:
+    """Gespraechsprotokoll als druckfertige Seite.
+
+    Setzt ein erzeugtes Briefing voraus — das Protokoll haelt fest, was besprochen
+    wurde, es erfindet es nicht. Ohne Briefing gibt es deshalb einen klaren 409
+    statt eines leeren Dokuments.
+    """
+    from uro.report import render_report
+
+    briefing = _briefings.get(ref)
+    if briefing is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Für diesen Klienten wurde noch kein Briefing erzeugt. "
+                   "Zuerst „Generate Briefing“, dann das Protokoll.",
+        )
+    fs = _enriched.get(ref) or _facts_cached(ref)
+    result = BriefingResult(
+        client_ref=ref, briefing=briefing, fact_sheet=fs,
+        display_name=_find(ref).get("_DisplayName", ref),
+        mode=_modes.get(ref, "ai"),
+    )
+    return render_report(result)
 
 
 @app.post("/api/reset")
