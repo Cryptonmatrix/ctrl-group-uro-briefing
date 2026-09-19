@@ -9,7 +9,6 @@ durchlaeuft. Frontend kommt spaeter, diese Datei bleibt als Testwerkzeug.
 
 from __future__ import annotations
 
-import os
 import sys
 import time
 
@@ -42,17 +41,17 @@ def print_briefing(briefing, issues, elapsed: float) -> None:
         for st in section.statements:
             color = COLORS.get(st.type.value, "")
             print(f"    {color}• {st.text}{RESET}")
-            print(f"      \033[90m{st.type.value} ← {', '.join(st.finding_ids)}{RESET}")
+            print(f"      \033[90m{st.type.value} <- {', '.join(st.finding_ids)}{RESET}")
         print()
     if briefing.likely_questions:
         print(f"  {BOLD}Womit der Kunde kommen wird{RESET}")
         for q in briefing.likely_questions:
-            print(f"    ? {q.question}\n      → {q.answer_hint}")
+            print(f"    ? {q.question}\n      -> {q.answer_hint}")
         print()
     if briefing.next_best_actions:
         print(f"  {BOLD}Next Best Actions{RESET}")
         for a in briefing.next_best_actions:
-            print(f"    {COLORS['recommendation']}→ {a.action}{RESET}\n      {a.rationale}")
+            print(f"    {COLORS['recommendation']}-> {a.action}{RESET}\n      {a.rationale}")
         print()
     if issues:
         print(f"  {COLORS['risk']}{BOLD}Validator: {len(issues)} Aussagen verworfen{RESET}")
@@ -63,6 +62,11 @@ def print_briefing(briefing, issues, elapsed: float) -> None:
 
 
 def main(argv: list[str]) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     ref = next((a for a in argv if not a.startswith("-")), "CASE-003")
     facts_only = "--facts" in argv
 
@@ -74,24 +78,22 @@ def main(argv: list[str]) -> int:
 
     if facts_only:
         return 0
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print(f"\n  {COLORS['risk']}ANTHROPIC_API_KEY fehlt — Briefing übersprungen.{RESET}")
-        print("  Key in .env eintragen, dann: set -a && source .env && set +a")
+    from uro.config import get_settings
+
+    settings = get_settings()
+    has_key = bool(settings.anthropic_api_key or settings.gemini_api_key or settings.google_api_key)
+    if not has_key:
+        print(f"\n  {COLORS['risk']}Kein API-Key (ANTHROPIC_API_KEY oder GEMINI_API_KEY) in .env gefunden.{RESET}")
+        print("  Key in .env eintragen für KI-Briefings.")
         return 1
 
     from uro.llm.briefing import generate_briefing
-    from uro.llm.transport import LLMError
     from uro.llm.validator import validate
 
     t1 = time.perf_counter()
-    try:
-        briefing = generate_briefing(fs)
-    except LLMError as exc:
-        print(f"\n  {COLORS['risk']}{type(exc).__name__} nach "
-              f"{time.perf_counter() - t1:.0f}s: {exc}{RESET}")
-        return 1
-
+    briefing, mode = generate_briefing(fs)
     briefing, issues = validate(briefing, fs)
+    print(f"\n  {BOLD}Modus: {mode}{RESET}")
     print_briefing(briefing, issues, time.perf_counter() - t1)
     return 0
 
