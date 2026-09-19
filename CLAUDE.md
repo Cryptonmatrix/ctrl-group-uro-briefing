@@ -125,15 +125,22 @@ Suitability-Engine NULL Verstösse.**
 | CASE-028 Charles Foster Kane | 22.0% | 12.0% | +83% | 0 |
 | CASE-003 Ron Burgundy | 20.0% | 12.0% | +67% | 0 |
 
-**Die Ursache:** Diese Portfolios haben `StrategyName: "No strategy"`. Ohne hinterlegte Strategie
-greifen die SAA-Regeln nicht, und die Verstoss-Prüfung läuft ins Leere. Das Risiko ist real und
-messbar — nur meldet es niemand.
+**Die Ursache (korrigiert 19.09., 13:00):** 10 der 11 sind **Execution-only-Mandate**
+(`InvestmentServices` „Execution only", Portfolio-Feld `InvestmentServiceName`). Dort gibt es keine
+Eignungsprüfung (FIDLEG Art. 13); die Regel-Engine meldet bei allen 11 Execution-only-Klienten **null**
+Verstösse, auch keine anderen. Sie schweigt also **absichtlich**, sie übersieht nichts. Die Regel selbst
+hat die Bank („Compliance with maximum volatility", schlägt in Beratungsmandaten zuverlässig an).
 
-**Das ist unser stärkstes Feature**, stärker als alles andere im Datensatz. Wir rechnen die
-Volatilität gegen `RiskProfiles[].MaxVola` selbst, unabhängig davon, ob eine Strategie hinterlegt ist.
-Ein Berater, der auf die Verstoss-Liste schaut, sieht bei Ellen Ripley ein sauberes Depot.
+**Pitch-Formulierung deshalb:** nicht „eure Engine übersieht Risiken", sondern **„wir zeigen dem Berater
+auch, was ausserhalb des Prüfumfangs liegt — und machen daraus einen Verkaufsanlass"**. Ellen Ripley hat
+ein Depot mit 60.6 % Volatilität bei einem eigenen Profil-Limit von 15 %: kein Verstoss, aber der
+perfekte Anlass, ein Beratungsgespräch bzw. -mandat anzubieten.
+Der eine echte blinde Fleck ist **CASE-023** (Anlageberatung, 24.5 % gegen 18.5 %, 0 Verstösse).
 
-Implementierung: `analytics/suitability.py` → `risk_profile_findings()`. Severity `ERROR`.
+Implementierung: `analytics/suitability.py` → `risk_profile_findings(..., mandate)`. Execution-only →
+`WARNING`, Titel „Execution-only portfolio …", Text „not a compliance breach … offer an advisory
+conversation"; Template-Action `client_follow_up`. Beratungsmandate → `ERROR` ab Faktor 1.2 wie bisher.
+ID bleibt `risk-breach-<pnr>`.
 
 ### ClientNotes — wertvoll, aber anders als die Strategie annahm
 

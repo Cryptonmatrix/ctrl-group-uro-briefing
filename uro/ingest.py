@@ -248,6 +248,7 @@ class ReferenceIndex:
         self.securities_by_isin: dict[str, list[dict[str, Any]]] = dict(by_isin)
 
         self.saa_by_id = index_by(lst(reference, "StrategicAssetAllocations"), "Id")
+        self.investment_services_by_id = index_by(lst(reference, "InvestmentServices"), "Id")
         self.rules_by_code: dict[str, dict[str, Any]] = index_by(
             lst(reference, "SuitabilityRules"), "RuleCode"
         )
@@ -289,6 +290,11 @@ class ReferenceIndex:
 
     def saa(self, saa_id: Any) -> dict[str, Any]:
         return self.saa_by_id.get(saa_id, {})
+
+    def investment_service_name(self, saa_id: Any) -> str | None:
+        """Mandatsart eines Portfolios über seine SAA, z. B. 'Execution only' oder 'Investment Advisory'."""
+        service = self.investment_services_by_id.get(get(self.saa(saa_id), "InvestmentServiceId"))
+        return get(service, "Name") if service else None
 
     def risk_profile(self, profile_id: Any) -> dict[str, Any] | None:
         return self.risk_profiles_by_id.get(profile_id)

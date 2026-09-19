@@ -50,16 +50,50 @@ def test_time_anchors_and_profile_fields(fact_sheets):
 # --- CASE-A01: der Pitch-Befund ------------------------------------------------
 
 
-def test_vola_breach_is_risk_profile_error(fact_sheets):
+def _advisory(client: dict) -> dict:
+    """Dasselbe Depot unter einem Beratungsmandat (SAA 92 → InvestmentService 'Depository Advisory')."""
+    import copy
+
+    client = copy.deepcopy(client)
+    client["Portfolios"][0]["StrategicAssetAllocationId"] = 92
+    return client
+
+
+def test_execution_only_vola_gap_is_advisory_opportunity(fact_sheets):
+    """CASE-A01 läuft auf SAA 1 → 'Execution only': keine Eignungsprüfung, also kein Verstoss, sondern Verkaufsanlass."""
     fs = fact_sheets["CASE-A01"]
     (breach,) = _find(fs, "risk-breach-")
     assert breach.type == FindingType.RISK_PROFILE
-    assert breach.severity == Severity.ERROR  # 20 % / 12 % = 1.67 ≥ 1.2
+    assert breach.severity == Severity.WARNING  # trotz Faktor 1.67: kein Compliance-Verstoss
     assert breach.numbers["volatility_pct"] == 20.0
     assert breach.numbers["max_volatility_pct"] == 12.0
-    assert "20.0%" in breach.title and "12.0%" in breach.title
-    assert "0 violations" in breach.detail or "no violation" in breach.detail.lower()
+    assert (
+        breach.title.startswith("Execution-only portfolio")
+        and "20.0%" in breach.title
+        and "12.0%" in breach.title
+    )
+    assert "not a compliance breach" in breach.detail and "advisory conversation" in breach.detail
+    assert "invisible" not in breach.detail
+    assert breach.rank <= 2
+
+
+def test_advisory_mandate_vola_breach_stays_error(mini_clients, mini_reference):
+    client = _advisory(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
+    fs = build_fact_sheet(client, mini_reference)
+    (breach,) = _find(fs, "risk-breach-")
+    assert breach.severity == Severity.ERROR  # 20 % / 12 % = 1.67 ≥ 1.2, Beratungsmandat
+    assert "0 violations" in breach.detail and "Execution-only" not in breach.title
     assert breach.rank == 1
+
+
+def test_execution_only_offers_advisory_conversation_in_template(fact_sheets):
+    from uro.llm.fallback import template_briefing
+    from uro.models import ActionKind
+
+    actions = template_briefing(fact_sheets["CASE-A01"]).next_best_actions
+    advisory = [a for a in actions if "risk-breach-CASE-A01-01" in a.finding_ids]
+    assert advisory and advisory[0].kind == ActionKind.CLIENT_FOLLOW_UP
+    assert "advisory conversation" in advisory[0].action
 
 
 def test_no_strategy_portfolio_has_no_real_saa(fact_sheets):
@@ -306,9 +340,7 @@ def test_vola_breach_names_the_rule_when_the_engine_sees_it_too(mini_clients, mi
 
 
 def test_vola_breach_with_unrelated_violations_says_so(mini_clients, mini_reference):
-    import copy
-
-    client = copy.deepcopy(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
+    client = _advisory(next(c for c in mini_clients if c["ClientRef"] == "CASE-A01"))
     client["SuitabilityViolations"] = [
         {
             "Id": 11,
