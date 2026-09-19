@@ -12,6 +12,7 @@ Zwei Sichten auf einen Klienten:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ from uro.analytics import build_fact_sheet
 from uro.analytics.proposals import open_proposals
 from uro.config import settings
 from uro.ingest import (
+    CLIENT_WRAPPER_KEYS,
     ReferenceIndex,
     clients_from_payload,
     display_name,
@@ -44,6 +46,36 @@ REFERENCE_KEYS: frozenset[str] = frozenset(
         "RecommendationLists",
         "EsgProfiles",
         "Tags",
+    }
+)
+
+
+CLIENT_TOP_LEVEL_KEYS: frozenset[str] = frozenset(
+    {
+        "ClientId",
+        "ClientRef",
+        "FirstName",
+        "LastName",
+        "Company",
+        "IsClientACompany",
+        "IsEmployee",
+        "RegulatoryClientTypeId",
+        "RegulatoryClientTypeName",
+        "ReportingCurrency",
+        "RiskProfileId",
+        "RiskProfileName",
+        "EsgProfileId",
+        "EsgProfileName",
+        "Birthday",
+        "ProfilingDateUtc",
+        "AssetsUnderManagementInDefaultCurrency",
+        "LiquidityInDefaultCurrency",
+        "Portfolios",
+        "Proposals",
+        "Transactions",
+        "SuitabilityViolations",
+        "IndividualRuleOverrides",
+        "ClientNotes",
     }
 )
 
@@ -152,70 +184,81 @@ class DataStore:
         reference_merged = False
 
         # 1. Referenz-Merge (wenn payload Dict mit Mindestens einem Key aus REFERENCE_KEYS)
-        if isinstance(payload, dict) and any(k in payload for k in REFERENCE_KEYS):
-            merged_ref: dict[str, Any] = {
-                k: list(v) if isinstance(v, list) else v for k, v in self._reference.items()
-            }
-            for key, val in payload.items():
-                if not isinstance(val, list):
-                    errors.append(f"{filename}: collection {key} must be a list")
-                    continue
+        if isinstance(payload, dict):
+            is_client_obj = "ClientRef" in payload or "ClientId" in payload
+            ref_keys = {k for k in payload.keys() if k in REFERENCE_KEYS}
+            if is_client_obj:
+                ref_keys.discard("Tags")
 
-                if key == "SuitabilityRules":
-                    current_list = list(merged_ref.get("SuitabilityRules") or [])
-                    code_to_idx = {
-                        r.get("RuleCode"): i
-                        for i, r in enumerate(current_list)
-                        if isinstance(r, dict) and "RuleCode" in r
-                    }
-                    for item in val:
-                        if not isinstance(item, dict):
-                            continue
-                        code = item.get("RuleCode")
-                        if code and code in code_to_idx:
-                            current_list[code_to_idx[code]] = item
-                        else:
-                            code_to_idx[code] = len(current_list)
-                            current_list.append(item)
-                    merged_ref["SuitabilityRules"] = current_list
+            if ref_keys:
+                merged_ref: dict[str, Any] = {
+                    k: list(v) if isinstance(v, list) else v for k, v in self._reference.items()
+                }
+                for key, val in payload.items():
+                    if key in CLIENT_WRAPPER_KEYS or key in CLIENT_TOP_LEVEL_KEYS:
+                        continue
+                    if is_client_obj and key == "Tags":
+                        continue
 
-                elif key == "FundUnbundlingMappings":
-                    current_list = list(merged_ref.get("FundUnbundlingMappings") or [])
-                    new_fund_ids = {
-                        row.get("FundSecurityId")
-                        for row in val
-                        if isinstance(row, dict) and "FundSecurityId" in row
-                    }
-                    kept_list = [
-                        row
-                        for row in current_list
-                        if isinstance(row, dict) and row.get("FundSecurityId") not in new_fund_ids
-                    ]
-                    kept_list.extend(val)
-                    merged_ref["FundUnbundlingMappings"] = kept_list
+                    if not isinstance(val, list):
+                        errors.append(f"{filename}: collection {key} must be a list")
+                        continue
 
-                else:
-                    current_list = list(merged_ref.get(key) or [])
-                    id_to_idx = {
-                        r.get("Id"): i
-                        for i, r in enumerate(current_list)
-                        if isinstance(r, dict) and r.get("Id") is not None
-                    }
-                    for item in val:
-                        if isinstance(item, dict) and item.get("Id") is not None:
-                            iid = item.get("Id")
-                            if iid in id_to_idx:
-                                current_list[id_to_idx[iid]] = item
+                    if key == "SuitabilityRules":
+                        current_list = list(merged_ref.get("SuitabilityRules") or [])
+                        code_to_idx = {
+                            r.get("RuleCode"): i
+                            for i, r in enumerate(current_list)
+                            if isinstance(r, dict) and "RuleCode" in r
+                        }
+                        for item in val:
+                            if not isinstance(item, dict):
+                                continue
+                            code = item.get("RuleCode")
+                            if code and code in code_to_idx:
+                                current_list[code_to_idx[code]] = item
                             else:
-                                id_to_idx[iid] = len(current_list)
+                                code_to_idx[code] = len(current_list)
                                 current_list.append(item)
-                        else:
-                            current_list.append(item)
-                    merged_ref[key] = current_list
+                        merged_ref["SuitabilityRules"] = current_list
 
-            self._reference = merged_ref
-            self._rebuild()
-            reference_merged = True
+                    elif key == "FundUnbundlingMappings":
+                        current_list = list(merged_ref.get("FundUnbundlingMappings") or [])
+                        new_fund_ids = {
+                            row.get("FundSecurityId")
+                            for row in val
+                            if isinstance(row, dict) and "FundSecurityId" in row
+                        }
+                        kept_list = [
+                            row
+                            for row in current_list
+                            if isinstance(row, dict) and row.get("FundSecurityId") not in new_fund_ids
+                        ]
+                        kept_list.extend(val)
+                        merged_ref["FundUnbundlingMappings"] = kept_list
+
+                    else:
+                        current_list = list(merged_ref.get(key) or [])
+                        id_to_idx = {
+                            r.get("Id"): i
+                            for i, r in enumerate(current_list)
+                            if isinstance(r, dict) and r.get("Id") is not None
+                        }
+                        for item in val:
+                            if isinstance(item, dict) and item.get("Id") is not None:
+                                iid = item.get("Id")
+                                if iid in id_to_idx:
+                                    current_list[id_to_idx[iid]] = item
+                                else:
+                                    id_to_idx[iid] = len(current_list)
+                                    current_list.append(item)
+                            else:
+                                current_list.append(item)
+                        merged_ref[key] = current_list
+
+                self._reference = merged_ref
+                self._rebuild()
+                reference_merged = True
 
         # 2. Klienten-Merge
         clients = clients_from_payload(payload)
@@ -271,6 +314,43 @@ class DataStore:
 
         if clients is None and not reference_merged:
             errors.append(f"{filename}: not recognised as client or reference data")
+
+        return UploadResult(
+            added_client_refs=added_client_refs,
+            updated_client_refs=updated_client_refs,
+            reference_merged=reference_merged,
+            errors=errors,
+        )
+
+    def merge_files(self, files: list[tuple[str, bytes]]) -> UploadResult:
+        """Für die Route: dekodiert, Fehler pro Datei, sammelt ein Ergebnis."""
+        added_client_refs: list[str] = []
+        updated_client_refs: list[str] = []
+        reference_merged = False
+        errors: list[str] = []
+
+        for filename, content in files:
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                errors.append(f"{filename}: invalid UTF-8 encoding ({exc})")
+                continue
+            try:
+                payload = json.loads(text)
+            except json.JSONDecodeError as exc:
+                errors.append(f"{filename}: invalid JSON ({exc.msg}, line {exc.lineno})")
+                continue
+
+            res = self.merge(payload, filename)
+            for ref in res.added_client_refs:
+                if ref not in added_client_refs:
+                    added_client_refs.append(ref)
+            for ref in res.updated_client_refs:
+                if ref not in updated_client_refs:
+                    updated_client_refs.append(ref)
+            if res.reference_merged:
+                reference_merged = True
+            errors.extend(res.errors)
 
         return UploadResult(
             added_client_refs=added_client_refs,

@@ -175,6 +175,7 @@ uro-briefing/
 │  ├─ models.py           ← FactSheet, Finding, Briefing, API-Modelle [gemeinsam, nur additiv]
 │  ├─ config.py           ← Settings (.env) + alle Schwellen/Mappings │ JACOB
 │  ├─ ingest.py           ← laden, normalisieren, PII strippen        │ JACOB
+│  ├─ store.py            ← In-Memory Store, Cache, Upload-Merge (A4) │ JACOB
 │  ├─ analytics/          ← __init__ (build_fact_sheet), performance, │ JACOB
 │  │                        concentration, suitability, scoring,      │
 │  │                        saa + notes noch offen                    │

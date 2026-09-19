@@ -251,3 +251,66 @@ def test_upload_reference_updates_cached_index_and_fact_sheets(store: DataStore)
     assert fs_after is not None
     pos_after = next(p for port in fs_after.portfolios for p in port.positions if p.security_id == 999)
     assert pos_after.saa_asset_class == "Shares"
+
+
+# 8. Fehlerfälle: {"foo": 1}, Klient ohne Ref/Id, merge_files mit bad.json und good.json
+def test_upload_error_handling(store: DataStore) -> None:
+    # A. Unbekannte Payload-Struktur
+    res1 = store.merge({"foo": 1}, "unknown.json")
+    assert len(res1.errors) == 1
+    assert "unknown.json: not recognised as client or reference data" in res1.errors[0]
+    assert len(store.clients) == 3
+
+    # B. Klient ohne ClientRef und ohne ClientId; zweiter Klient ist gültig
+    raw_clients = _load_raw_mini_clients()
+    bad_client = {"SomeField": "Value"}
+    good_client = copy.deepcopy(raw_clients[0])
+    good_client["ClientRef"] = "TEST-GOOD-01"
+    good_client["ClientId"] = 99401
+
+    res2 = store.merge([bad_client, good_client], "partial.json")
+    assert any("partial.json" in e and "missing both" in e for e in res2.errors)
+    assert res2.added_client_refs == ["TEST-GOOD-01"]
+    assert store.get_client("TEST-GOOD-01") is not None
+
+    # C. merge_files mit ungültigem JSON und gültigem Klienten
+    good_client2 = copy.deepcopy(raw_clients[0])
+    good_client2["ClientRef"] = "TEST-GOOD-02"
+    good_client2["ClientId"] = 99402
+    files = [
+        ("bad.json", b"{not json"),
+        ("good.json", json.dumps(good_client2).encode("utf-8")),
+    ]
+    res3 = store.merge_files(files)
+    assert len(res3.errors) == 1
+    assert "bad.json: invalid JSON" in res3.errors[0]
+    assert res3.added_client_refs == ["TEST-GOOD-02"]
+    assert store.get_client("TEST-GOOD-02") is not None
+
+
+# 9. Reset: reset() stellt Originalzustand wieder her
+def test_upload_reset_restores_original_state(store: DataStore) -> None:
+    raw_clients = _load_raw_mini_clients()
+    client = copy.deepcopy(raw_clients[0])
+    client["ClientRef"] = "TEST-RESET"
+    client["ClientId"] = 99501
+    store.merge([client], "new_client.json")
+
+    raw_ref = json.loads((FIXTURES / "mini_reference.json").read_text(encoding="utf-8"))
+    sec106 = copy.deepcopy(raw_ref["Securities"][0])
+    sec106["Id"] = 106
+    sec106["Isin"] = "CH0010570799"
+    sec106["Name"] = "Sec 106"
+    store.merge({"Securities": [sec106]}, "ref_new.json")
+
+    assert store.get_client("TEST-RESET") is not None
+    assert store.ref.security(106)["Name"] == "Sec 106"
+    assert any(c.is_new for c in store.list_clients())
+
+    # Reset
+    store.reset()
+
+    assert len(store.clients) == 3
+    assert store.get_client("TEST-RESET") is None
+    assert store.ref.security(106) == {}
+    assert all(not c.is_new for c in store.list_clients())
