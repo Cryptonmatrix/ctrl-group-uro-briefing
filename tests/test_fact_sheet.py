@@ -104,7 +104,8 @@ def test_concentration_ignores_cash(fact_sheets):
     fs = fact_sheets["CASE-C03"]
     assert not [f for f in fs.findings if f.id.startswith("conc-")]
     fs_a = fact_sheets["CASE-A01"]
-    (single,) = _find(fs_a, "conc-single-")
+    (single,) = _find(fs_a, "conc-single-chocoladefabriken")
+    assert single.severity == Severity.ERROR
     assert single.numbers["weight_pct"] == 73.5
     assert "73.5%" in single.title
     assert single.numbers["amount_chf"] == 102900.0
@@ -123,8 +124,8 @@ def test_violations_are_bundled_and_overrides_filtered(fact_sheets):
     assert v.severity == Severity.ERROR  # ein Error + eine Warnung → Error
     assert v.portfolio_nr == "CASE-B02-01"
     assert "Global Equity Fund (CHF)" in v.detail  # ISIN → CHF-Tranche
-    assert v.numbers["actual_pct"] == 60.0 and v.numbers["limit_pct"] == 50.0
-    assert "60.0%" in v.detail and "50.0%" in v.detail
+    assert v.numbers["actual_pct"] == 70.0 and v.numbers["limit_pct"] == 50.0
+    assert "70.0%" in v.detail and "50.0%" in v.detail
     assert sorted(v.security_ids) == [101, 103]
 
 

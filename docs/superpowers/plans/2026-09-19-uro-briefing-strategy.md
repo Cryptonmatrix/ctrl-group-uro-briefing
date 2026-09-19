@@ -19,6 +19,11 @@
 > `format.py`, `positions.py` inkl. Cash/Krypto, `coverage` + Zeitanker, `viol-<slug>` gebündelt, `RISK_PROFILE`, Notiz- und Profil-Findings,
 > 32 Tests, Smoke 47/47 mit 475 Findings) · ✅ Levin: Frontend `index.html` + API-Routen (Branch `levin/frontend-api`) · ⏳ B1 (API-Key!) · ⏳ C1 `service.py`.
 > Finding-Texte sind jetzt **Englisch** (Spec §2, Plan §10.1 Default) — Gianlucas Prompt sagt noch „Deutsch", das muss zusammenpassen.
+>
+> **Status A2:** ✅ SAA-Abgleich mit Look-through (`saa.py`; Region/Branche aktienrelativ, an Bank-Regeln verifiziert), Konzentration
+> auf Klientenebene (Titel/Branche/Fremdwährung/Region, `FactSheet.exposures` für den Chat), ESG, Liquidität inkl. Bedarf aus Notizen
+> (CASE-012 ungedeckt / CASE-016 gedeckt), Fälligkeiten, offene/abgelehnte Proposals, abgeleitete To-dos, Scoring mit Boosts und
+> Begründungen. 59 Tests, Smoke 47/47 mit 805 Findings, < 25 ms. **Offen:** Proposal-Impact-Boost (erster Punkt der Streichliste).
 **Repo:** `https://github.com/Cryptonmatrix/ctrl-group-uro-briefing.git` · ein Branch `main` · **Sprache:** Doku Deutsch, Code/UI/LLM Englisch
 
 **Goal:** Ein Klick auf „Generate Briefing" in einem nachgebauten URO Advisor Pro liefert in < 15 s ein in 60 s lesbares, quellenbelegtes Briefing für **jeden** Klienten, inklusive eines per Upload hinzugefügten, unbekannten Testklienten, plus Follow-up-Chat.
@@ -201,7 +206,7 @@ ctrl-group-uro-briefing/
 | `perf-<pnr>`, `perf-gap-<pnr>`, `drv-<secid>` | Portfolio-Rendite je Portfolio (Levin, existiert), Datenlücke, Positions-Treiber | `perf-CASE-003-01`, `drv-9108` |
 | `mkt-<secid>` | Sektor-/Marktvergleich zu einem Treiber | `mkt-9108` |
 | `saa-<dim>-<slug>` | SAA-Abweichung | `saa-assetclass-shares` |
-| `conc-single-<pnr>`, `conc-sector-<pnr>` (Levin, existieren), `conc-currency-<slug>`, `conc-region-<slug>` | Konzentration Titel / Branche je Portfolio; Währung / Region auf Klientenebene | `conc-single-CASE-003-01` |
+| `conc-single-<slug(Titel)>`, `conc-sector-<slug>`, `conc-currency-<slug>`, `conc-region-<slug>` | Konzentration auf Klientenebene mit Look-through (seit A2; ersetzt Levins `conc-single-<pnr>`) | `conc-single-namen-aktie-chocoladefabriken-l` |
 | `viol-<slug(rulecode)>` | Suitability-Verstoß (gleicher RuleCode → ein Finding). Ersetzt Levins `viol-<i>` (Index ist über Läufe instabil) | `viol-cluster-risk-single-instrument` |
 | `risk-breach-<pnr>` (Levin, existiert) | Volatilität vs. MaxVola | `risk-breach-CASE-011-01` |
 | `esg-<slug>` | ESG | `esg-positions-below-min` |
@@ -212,7 +217,8 @@ ctrl-group-uro-briefing/
 | `intent-<slug>` | aus Notizen extrahierte, geprüfte Absicht | `intent-liquidity-need` |
 | `news-<n>` | News-Artikel | `news-2` |
 | `hv-<dim>-<slug>` | House-View-Abgleich | `hv-assetclass-bonds` |
-| `gap-profile-<pnr>`, `gap-vola-<pnr>` (Levin, existieren), `gap-<slug>` | Datenlücke | `gap-profile-CASE-029-01`, `gap-no-saa-CASE-003-01` |
+| `gap-profile-<pnr>`, `gap-vola-<pnr>`, `gap-portfolio-<pnr>`, `perf-gap-<pnr>` | Datenlücke | `gap-profile-CASE-029-01` |
+| `saa-none-<pnr>` | Portfolio ohne echte SAA ("No strategy") — Kontext, kein Datenfehler | `saa-none-CASE-003-01` |
 | `pos-<secid>` | **nur Chat-Kontext**: Positionszeile | `pos-9108` |
 
 Slug: lowercase, `[^a-z0-9]+ → -`, max 40 Zeichen. IDs sind innerhalb eines FactSheets eindeutig (Kollision → Suffix `-2`).

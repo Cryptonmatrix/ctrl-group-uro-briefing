@@ -253,6 +253,8 @@ class ReferenceIndex:
             converted["Weight"] = float(weight) / 100.0
             unbundling[fund_id].append(converted)
         self.unbundling_by_fund_id: dict[int, list[dict[str, Any]]] = dict(unbundling)
+        # (fund_id, dimension) → [(SAA-Kategorie, Anteil)], gefüllt von analytics.lookthrough.fund_breakdown
+        self.lookthrough_cache: dict[tuple[int, str], list[tuple[str, float]] | None] = {}
 
         recommended: set[int] = set()
         for rec_list in lst(reference, "RecommendationLists"):

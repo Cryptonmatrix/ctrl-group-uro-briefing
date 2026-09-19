@@ -13,6 +13,7 @@ sie deterministisch gegen Positionen und Liquidität (z. B. "needs CHF 15,000" v
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Any
 
@@ -38,17 +39,47 @@ def note_flags(client: dict[str, Any]) -> list[str]:
     return sorted(flags)
 
 
-def note_findings(client: dict[str, Any], as_of: date | None = None) -> list[Finding]:
-    """Die jüngsten Notizen wörtlich, neueste zuerst: note-1, note-2, …"""
+def sorted_notes(client: dict[str, Any]) -> list[tuple[date | None, str]]:
+    """Notizen neueste zuerst, undatierte am Ende — dieselbe Reihenfolge wie die note-N-IDs."""
     notes = []
     for n in lst(client, "ClientNotes"):
         text = str(get(n, "Note", "")).strip()
-        if not text:
+        if text:
+            notes.append((parse_date(get(n, "CreatedByDateUTC")), text))
+    dated = sorted((t for t in notes if t[0] is not None), key=lambda t: t[0], reverse=True)
+    return dated + [t for t in notes if t[0] is None]
+
+
+_AMOUNT_RE = re.compile(r"CHF\s?(\d[\d,'\.]*)", re.IGNORECASE)
+
+
+def liquidity_need_from_notes(client: dict[str, Any]) -> tuple[float | None, str | None]:
+    """Erster CHF-Betrag in einer Notiz mit Liquiditäts-Stichwort → (Betrag, note-ID). Sonst (None, None).
+
+    "Needs approximately CHF 15,000 in liquid funds for the Q1 tax payment." → (15000.0, "note-2")
+    "Prefers CHF-hedged investments" hat keine Ziffer nach CHF und zählt nicht.
+    """
+    keywords = NOTE_KEYWORDS.get("liquidity_need", [])
+    for i, (_, text) in enumerate(sorted_notes(client)[:NOTES_FOR_LLM], start=1):
+        low = text.lower()
+        if not any(w in low for w in keywords):
             continue
-        notes.append((parse_date(get(n, "CreatedByDateUTC")), text))
-    notes.sort(key=lambda t: (t[0] is None, t[0] or date.min), reverse=True)
-    # sort reverse=True mit (None-Flag, Datum): datierte zuerst, jüngste oben
-    notes = [t for t in notes if t[0] is not None] + [t for t in notes if t[0] is None]
+        m = _AMOUNT_RE.search(text)
+        if not m:
+            continue
+        raw = m.group(1).replace("'", "").replace(",", "").rstrip(".")
+        try:
+            amount = float(raw)
+        except ValueError:
+            continue
+        if amount > 0:
+            return amount, f"note-{i}"
+    return None, None
+
+
+def note_findings(client: dict[str, Any], as_of: date | None = None) -> list[Finding]:
+    """Die jüngsten Notizen wörtlich, neueste zuerst: note-1, note-2, …"""
+    notes = sorted_notes(client)
 
     out: list[Finding] = []
     for i, (created, text) in enumerate(notes[:NOTES_FOR_LLM], start=1):

@@ -60,18 +60,36 @@ NOTE_MAX_CHARS = 600
 # Detektor-Schwellen (Brüche 0–1, außer wo "_pct"/"_pp" steht)
 # ---------------------------------------------------------------------------
 
-# Konzentration: (Schwelle, Referenzgröße für materiality) je Ebene — Spec §5.9.
-# Levins Durchstich nutzt vorerst 20 %/40 % Einzeltitel und 35 % Sektor je Portfolio (A1 behält
-# diese Werte, A2 wechselt auf die Spec-Werte mit Fonds-Look-through auf Klientenebene).
+# Konzentration auf Klientenebene mit Fonds-Look-through: (Schwelle, Referenzgröße für materiality) je Ebene — Spec §5.9.
 CONCENTRATION = {
     "security": (0.10, 0.15),
     "industry": (0.20, 0.30),
     "currency": (0.30, 0.50),  # nur Fremdwährungen ≠ ReportingCurrency
-    "region": (0.40, 0.60),
+    "region": (0.40, 0.60),  # ohne Heimatregion und Sammelbuckets
 }
-CONCENTRATION_LEGACY_SINGLE_WARN_PCT = 20.0
-CONCENTRATION_LEGACY_SINGLE_ERROR_PCT = 40.0
-CONCENTRATION_LEGACY_SECTOR_WARN_PCT = 35.0
+CONCENTRATION_SINGLE_ERROR = 0.25  # Einzeltitel ab 25 % des Vermögens: ERROR statt WARNING
+CONCENTRATION_MAX_SINGLE_FINDINGS = 3
+EXPOSURE_TOP_N = 10  # FactSheet.exposures je Dimension (für Chat und UI)
+HOME_COUNTRY_GROUP = {"CHF": "Switzerland", "EUR": "Rest of Europe", "USD": "North America", "GBP": "Great Britain"}
+REPORTING_CURRENCY_GROUP = {"CHF": "Swiss francs", "USD": "US-Dollar", "EUR": "Euro"}
+IGNORED_REGION_BUCKETS = {"Others", "Not classified"}
+
+# Look-through-Zeilen nutzen andere Regions- und Währungsnamen als die SAA (gemessen, data-notes §3/§6)
+LOOKTHROUGH_COUNTRY_MAP = {
+    "Equities North America": "North America",
+    "Equities Euroland": "Rest of Europe",
+    "Equities Switzerland": "Switzerland",
+    "Equities Pacific": "Asia/Pacific (ex Japan)",
+    "Equities Japan": "Japan",
+    "Aktien UK": "Great Britain",
+    "Equities EmMa": "Others",
+}
+LOOKTHROUGH_CURRENCY_GROUPS = {"Swiss francs", "US-Dollar", "Euro"}  # alle anderen 40 Währungen → "Andere"
+LOOKTHROUGH_CURRENCY_DEFAULT = "Andere"
+LOOKTHROUGH_COUNTRY_DEFAULT = "Others"
+
+# ESG-Regel der Bank (einzige in den Daten): "Sustainable investments only" → related_ids statt Doppelmeldung
+ESG_RULE_KEYWORDS = ("sustainab", "esg", "nachhalt")
 
 # SAA: AssetClass hat Min/Target/Max → Bandverletzung. Die anderen drei Dimensionen haben in den
 # Daten nur ein Target (258 von 333 Mappings ohne Min/Max, data-notes §5) → feste Schwelle.
@@ -171,6 +189,7 @@ SEVERITY_WEIGHT: dict[tuple[str, str], float] = {
     ("suitability_violation", "error"): 1.00,
     ("risk_profile", "error"): 1.00,
     ("saa_deviation", "warning"): 0.80,
+    ("saa_deviation", "info"): 0.60,  # Währung/Region/Branche: nur Target, keine Bänder
     ("suitability_violation", "warning"): 0.75,
     ("risk_profile", "warning"): 0.75,
     ("performance", "warning"): 0.70,
@@ -189,6 +208,7 @@ SEVERITY_WEIGHT: dict[tuple[str, str], float] = {
     ("data_gap", "warning"): 0.45,
     ("data_gap", "info"): 0.45,
     ("liquidity", "opportunity"): 0.45,
+    ("liquidity", "info"): 0.35,  # Liquiditätsbedarf ist gedeckt — Kontext, kein Problem
     ("performance", "opportunity"): 0.40,
     ("house_view", "info"): 0.35,
     ("house_view", "opportunity"): 0.30,
@@ -216,15 +236,8 @@ LOOKTHROUGH_INDUSTRY_MAP = {
     "Raw materials": "Materials",
     "Communication Services": "Telecommunication Services",
 }
-# FundUnbundlingMappings.AssetClassName ist fein ("Equities EmMa") → SAA-Klasse per Präfix
-LOOKTHROUGH_ASSETCLASS_PREFIX = {
-    "Equities": "Shares",
-    "Bonds": "Bonds",
-    "Real estate": "Real estate",
-    "Liquidity": "Liquidity",
-    "Money market": "Liquidity",
-}
-LOOKTHROUGH_ASSETCLASS_DEFAULT = "Specialties andCommodities"  # Tippfehler ist Original!
+# Asset-Klasse: KEIN Look-through. Alle 224 gehaltenen Look-through-Fonds sind laut SAA_AssetClassName
+# "Shares" und ihre Zeilen nennen nur "Equities …" — die eigene SAA-Klasse des Fonds ist genauso genau.
 
 SAA_ASSET_CLASSES = ["Liquidity", "Bonds", "Shares", "Real estate", "Specialties andCommodities"]
 CRYPTO_CURRENCIES = {"BTC", "ETH", "SOL", "DOT", "SHIB", "OZG", "ADA", "XRP"}

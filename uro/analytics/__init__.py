@@ -22,10 +22,14 @@ from collections.abc import Callable
 from typing import Any
 
 from uro.analytics.concentration import concentration_findings
+from uro.analytics.esg import esg_findings
+from uro.analytics.liquidity import liquidity_findings
 from uro.analytics.notes import note_findings, note_flags, profile_findings
-from uro.analytics.performance import compute_returns, performance_findings
-from uro.analytics.positions import build_positions, is_cash, total_aum
-from uro.analytics.proposals import open_proposals
+from uro.analytics.open_items import open_item_findings
+from uro.analytics.performance import compute_returns, performance_findings, return_since
+from uro.analytics.positions import build_positions, total_aum
+from uro.analytics.proposals import open_proposals, proposal_findings
+from uro.analytics.saa import build_allocation, saa_findings
 from uro.analytics.scoring import score_findings
 from uro.analytics.suitability import risk_profile_findings, violation_findings
 from uro.config import NO_STRATEGY_NAMES
@@ -181,6 +185,7 @@ def build_fact_sheet(client: dict[str, Any], reference: dict[str, Any]) -> FactS
     stamps += [parse_datetime(get(p, "ProposedDateUTC")) for p in lst(client, "Proposals")]
     known = [s for s in stamps if s]
     fs.last_contact = max(known) if known else None
+    last_contact = fs.last_contact.date() if fs.last_contact else None
 
     # Positionstabelle über alle Portfolios (inkl. Konten), dann je Portfolio gruppieren
     try:
@@ -225,15 +230,33 @@ def build_fact_sheet(client: dict[str, Any], reference: dict[str, Any]) -> FactS
             coverage["portfolios"] = "ok"
         fs.portfolios.append(pf)
 
-        findings += _run(coverage, "performance", performance_findings, pnr, returns, p_aum, fs.history_as_of)
+        # Ist-Allokation vs. SAA (mit Look-through) — Fehler hier kostet nur die Allokation, nicht das Portfolio
+        try:
+            pf.allocation = build_allocation(pf.positions, ref.saa(get(p, "StrategicAssetAllocationId")), ref, pf.has_real_saa)
+            if not coverage.get("allocation", "").startswith("error"):
+                coverage["allocation"] = "ok"
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Allocation for %s failed", pnr)
+            coverage["allocation"] = f"error: {type(exc).__name__}"
+
+        since = return_since(pf.history, last_contact)
         findings += _run(
-            coverage, "concentration", concentration_findings, pnr, [x for x in pf.positions if not is_cash(x)], p_aum
+            coverage, "performance", performance_findings, pnr, returns, p_aum, fs.history_as_of, since, last_contact
         )
         findings += _run(coverage, "risk_profile", risk_profile_findings, client, clean, profile, p_aum)
 
     coverage.setdefault("portfolios", "no_data")
+    coverage.setdefault("allocation", "no_data")
+
+    # Klientenebene: alle Portfolios zusammen
+    findings += _run(coverage, "saa", saa_findings, fs, client, portfolio_nr_by_id)
+    findings += _run(coverage, "concentration", concentration_findings, fs, ref)
+    findings += _run(coverage, "esg", esg_findings, fs, client, ref)
+    findings += _run(coverage, "liquidity", liquidity_findings, fs, client)
+    findings += _run(coverage, "proposals", proposal_findings, fs, client, ref, portfolio_nr_by_id)
+    findings += _run(coverage, "open_items", open_item_findings, fs, client)
     findings += _run(coverage, "notes", note_findings, client, fs.data_as_of)
 
-    fs.findings = score_findings(_unique_ids(findings), aum)
+    fs.findings = score_findings(_unique_ids(findings), fs)
     fs.coverage = coverage
     return fs

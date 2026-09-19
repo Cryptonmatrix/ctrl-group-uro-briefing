@@ -144,7 +144,9 @@ def violation_findings(
                 numbers=numbers,
                 portfolio_nr=", ".join(pnrs) if pnrs else None,
                 security_ids=security_ids,
-                materiality_chf=aum * (0.3 if is_error else 0.1),
+                # Spec §5.7: Verstösse haben Grösse 1 — ein Error der Bank-Regel-Engine ist nie "klein".
+                # Warnungen halb, damit Errors vor Warnungen stehen (Grundgewicht 1.00 vs 0.75).
+                materiality_chf=aum * (1.0 if is_error else 0.5),
                 source=SOURCE_VIOLATIONS,
             )
         )

@@ -53,8 +53,8 @@
         "Volatility": 0.09, "ExpectedReturn": 0.05, "ValueAtRisk": 0.08, "FactoryDateUtc": "2026-09-18T02:00:00Z",
         "SecurityPositions": [
           {"SecurityId": 101, "Isin": "CH0010570767", "Valor": "1057076", "SecurityName": "Chocoladefabriken Lindt & Spruengli AG N", "Quantity": 9.52, "PricePerUnit": 10500.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 100000.0, "PortfolioValuePercentage": 0.20, "MarginalContributionToRisk": 0.15, "ContributionVolatility": 0.03},
-          {"SecurityId": 103, "Isin": "LU0000000001", "Valor": "9000001", "SecurityName": "Global Equity Fund (CHF)", "Quantity": 2000.0, "PricePerUnit": 150.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 300000.0, "PortfolioValuePercentage": 0.60, "MarginalContributionToRisk": 0.09, "ContributionVolatility": 0.054},
-          {"SecurityId": 104, "Isin": "CH0000000004", "Valor": "9000004", "SecurityName": "Swiss Confederation 1.5% 2027", "Quantity": 750.0, "PricePerUnit": 100.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 75000.0, "PortfolioValuePercentage": 0.15, "MarginalContributionToRisk": 0.04, "ContributionVolatility": 0.006}
+          {"SecurityId": 103, "Isin": "LU0000000001", "Valor": "9000001", "SecurityName": "Global Equity Fund (CHF)", "Quantity": 2333.33, "PricePerUnit": 150.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 350000.0, "PortfolioValuePercentage": 0.70, "MarginalContributionToRisk": 0.09, "ContributionVolatility": 0.063},
+          {"SecurityId": 104, "Isin": "CH0000000004", "Valor": "9000004", "SecurityName": "Swiss Confederation 1.5% 2027", "Quantity": 250.0, "PricePerUnit": 100.0, "Currency": "CHF", "TotalAmountInPortfolioCurrency": 25000.0, "PortfolioValuePercentage": 0.05, "MarginalContributionToRisk": 0.04, "ContributionVolatility": 0.002}
         ],
         "AccountPositions": [
           {"AccountName": "Privatkonto CHF", "Currency": "CHF", "TotalAmountInPortfolioCurrency": 25000.0, "PortfolioValuePercentage": 0.05, "MarginalContributionToRisk": 0.0, "ContributionVolatility": 0.0}
@@ -79,7 +79,7 @@
     "Transactions": null,
     "SuitabilityViolations": [
       {"Id": 1, "RuleCode": "Cluster risk of a single financial instrument", "RuleDescription": "Maximales Gewicht eines Einzeltitels überschritten", "ErrorLevel": 2, "Severity": "Error", "PortfolioId": 2, "LastViolatedDateUTC": "2026-07-01T00:00:00Z", "SecurityIsin": "LU0000000001",
-       "ViolationPath": [{"FieldName": "RegulatoryClientTypeRuleField`1", "LeftValue": 13.0, "RightValue": 13.0, "Operator": 10}, {"FieldName": "PositionPortfolioValueRuleField`1", "LeftValue": 0.60, "RightValue": 0.50, "Operator": 40}]},
+       "ViolationPath": [{"FieldName": "RegulatoryClientTypeRuleField`1", "LeftValue": 13.0, "RightValue": 13.0, "Operator": 10}, {"FieldName": "PositionPortfolioValueRuleField`1", "LeftValue": 0.70, "RightValue": 0.50, "Operator": 40}]},
       {"Id": 2, "RuleCode": "Cluster risk of a single financial instrument", "RuleDescription": "Maximales Gewicht eines Einzeltitels überschritten", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 2, "LastViolatedDateUTC": "2026-07-01T00:00:00Z", "SecurityIsin": "CH0010570767",
        "ViolationPath": [{"FieldName": "PositionPortfolioValueRuleField`1", "LeftValue": 0.20, "RightValue": 0.15, "Operator": 40}]},
       {"Id": 3, "RuleCode": "Knowledge of structured products", "RuleDescription": "Kenntnisse zu strukturierten Produkten fehlen", "ErrorLevel": 1, "Severity": "Warning", "PortfolioId": 2, "LastViolatedDateUTC": "2026-07-01T00:00:00Z"}
