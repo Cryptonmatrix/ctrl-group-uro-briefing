@@ -115,6 +115,32 @@ button{font:inherit;cursor:pointer}
 .notice{padding:13px;color:var(--muted);font-size:12.5px;background:#fffdf5;
   border-left:3px solid var(--amber)}
 .empty{padding:40px;text-align:center;color:var(--muted)}
+
+/* Kursverlauf. Eine Serie, also keine Legende — die Ueberschrift benennt sie. */
+.chartcard{position:relative}
+.chartwrap{position:relative;padding:6px 13px 10px}
+.chartwrap svg{display:block;width:100%;height:96px;overflow:visible}
+.chartwrap .axis{stroke:var(--line);stroke-width:1}
+.chartwrap .line{fill:none;stroke:var(--uro-blue);stroke-width:2;
+  stroke-linejoin:round;stroke-linecap:round}
+.chartwrap .area{fill:var(--uro-blue);opacity:.08}
+.chartwrap .endpt{fill:var(--uro-blue);stroke:#fff;stroke-width:2}
+.chartwrap .lbl{font-size:10px;fill:var(--muted)}
+.chartwrap .cross{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 2;opacity:0}
+.chartwrap .hit{fill:transparent;cursor:crosshair}
+.tip{position:absolute;pointer-events:none;background:#fff;border:1px solid var(--line);
+  padding:4px 8px;font-size:11px;white-space:nowrap;opacity:0;transition:opacity .08s;
+  box-shadow:0 1px 4px rgba(0,0,0,.12);font-variant-numeric:tabular-nums}
+
+/* Herkunft des Briefings */
+.modebadge{font-size:10px;text-transform:uppercase;letter-spacing:.4px;
+  padding:2px 8px;border-radius:2px;margin-left:auto;font-weight:600}
+.m-ai{background:#eef6ee;color:var(--green)}
+.m-ai_retry,.m-ai_gemini{background:#fdf6e8;color:#9a6b12}
+.m-fallback{background:var(--uro-red);color:#fff}
+.card h2.withbadge{display:flex;align-items:center;gap:8px}
+.newtag{font-size:9px;background:var(--uro-orange);color:#fff;padding:1px 5px;
+  border-radius:2px;margin-left:5px;letter-spacing:.3px}
 .legend{display:flex;gap:13px;flex-wrap:wrap;padding:8px 13px;font-size:11px;
   color:var(--muted);border-top:1px solid var(--line)}
 .legend span{display:flex;align-items:center;gap:5px}
@@ -134,6 +160,8 @@ button{font:inherit;cursor:pointer}
   <span class="name" id="cname">Kein Klient gewählt</span>
   <span class="spacer"></span>
   <div class="actions">
+    <button class="action" id="uploadbtn">Klientendatei laden</button>
+    <input type="file" id="uploadinput" accept=".json,application/json" hidden>
     <button class="action">Telefonberatung</button>
     <button class="action">Beratermappe</button>
     <button class="action">Notizen</button>
@@ -165,6 +193,10 @@ button{font:inherit;cursor:pointer}
 <script>
 const $ = s => document.querySelector(s);
 const chf = n => new Intl.NumberFormat('de-CH',{maximumFractionDigits:0}).format(n||0);
+// Die Engine liefert volle Genauigkeit. Angezeigt werden zwei Nachkommastellen —
+// "+6.092343%" liest sich wie ein Rohdatensatz, nicht wie ein Beraterwerkzeug.
+const pct = (n, sign=true) => n==null ? '—'
+  : (sign && n>0 ? '+' : '') + n.toFixed(2) + '%';
 const esc = s => String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let current = null, facts = null;
 
@@ -172,7 +204,7 @@ async function boot(){
   const cs = await (await fetch('/api/clients')).json();
   $('#clist').innerHTML = cs.map(c=>
     `<button class="cli" data-ref="${c.ref}">
-       <div class="r">${c.ref}${c.is_company?' · Firma':''}</div>
+       <div class="r">${c.ref}${c.is_company?' · Firma':''}${c.is_new?'<span class="newtag">NEU</span>':''}</div>
        <div class="n">${esc(c.name)}</div>
        <div class="r">CHF ${chf(c.aum)}</div>
      </button>`).join('');
@@ -194,6 +226,82 @@ async function select(ref){
   renderFacts(d);
 }
 
+// Kursverlauf des Portfolios. Eine Serie, 2px-Linie, zurueckhaltende Achse,
+// Hover-Ebene mit Fadenkreuz — nur Anfang, Tief, Hoch und Ende beschriftet,
+// keine Zahl an jedem Punkt.
+const CHART_W = 600, CHART_H = 100, PAD_Y = 12;
+let chartPts = [];
+
+function chartCard(p){
+  const h = (p.history||[]).filter(x=>x && x.value!=null);
+  if(h.length < 3) return '';
+  const vals = h.map(x=>x.value), lo = Math.min(...vals), hi = Math.max(...vals);
+  const span = (hi-lo) || 1;
+  const x = i => i*(CHART_W/(h.length-1));
+  const y = v => PAD_Y + (CHART_H-2*PAD_Y) * (1-(v-lo)/span);
+  chartPts = h.map((d,i)=>({x:x(i), y:y(d.value), date:d.date, value:d.value}));
+
+  const line = chartPts.map((pt,i)=>`${i?'L':'M'}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join('');
+  const area = `${line}L${CHART_W},${CHART_H}L0,${CHART_H}Z`;
+  const first = h[0], last = h[h.length-1];
+  const change = ((last.value/first.value)-1)*100;
+  const iLo = vals.indexOf(lo), iHi = vals.indexOf(hi);
+
+  return `
+    <div class="card chartcard">
+      <h2>Kursverlauf · ${h.length} Monate · ${change>=0?'+':''}${change.toFixed(1)}%</h2>
+      <div class="chartwrap" id="chartwrap">
+        <svg viewBox="0 0 ${CHART_W} ${CHART_H}" preserveAspectRatio="none">
+          <path class="area" d="${area}"/>
+          <path class="line" d="${line}" vector-effect="non-scaling-stroke"/>
+          <line class="axis" x1="0" y1="${CHART_H}" x2="${CHART_W}" y2="${CHART_H}"
+                vector-effect="non-scaling-stroke"/>
+          <line class="cross" id="cross" y1="0" y2="${CHART_H}" vector-effect="non-scaling-stroke"/>
+          <circle class="endpt" id="marker" r="4" cx="${chartPts.at(-1).x}"
+                  cy="${chartPts.at(-1).y}" vector-effect="non-scaling-stroke"/>
+          <rect class="hit" id="hit" x="0" y="0" width="${CHART_W}" height="${CHART_H}"/>
+        </svg>
+        <div class="tip" id="tip"></div>
+      </div>
+      <div class="legend">
+        <span>${first.date?.slice(0,7)||''}</span>
+        <span>Tief ${chf(lo)} (${h[iLo].date?.slice(0,7)||''})</span>
+        <span>Hoch ${chf(hi)} (${h[iHi].date?.slice(0,7)||''})</span>
+        <span style="margin-left:auto">${last.date?.slice(0,7)||''} · <b>CHF ${chf(last.value)}</b></span>
+      </div>
+    </div>`;
+}
+
+function wireChart(){
+  const wrap = $('#chartwrap'); if(!wrap || !chartPts.length) return;
+  const hit = $('#hit'), cross = $('#cross'), marker = $('#marker'), tip = $('#tip');
+  const show = e => {
+    const r = wrap.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - r.left)/r.width));
+    const pt = chartPts[Math.round(frac*(chartPts.length-1))];
+    cross.setAttribute('x1', pt.x); cross.setAttribute('x2', pt.x);
+    cross.style.opacity = 1;
+    marker.setAttribute('cx', pt.x); marker.setAttribute('cy', pt.y);
+    tip.textContent = `${pt.date?.slice(0,7)||''} · CHF ${chf(pt.value)}`;
+    tip.style.opacity = 1;
+    const px = (pt.x/CHART_W)*r.width;
+    tip.style.left = Math.min(Math.max(px-40, 0), r.width-120)+'px';
+    tip.style.top = ((pt.y/CHART_H)*r.height - 30)+'px';
+  };
+  hit.addEventListener('mousemove', show);
+  hit.addEventListener('mouseleave', ()=>{
+    cross.style.opacity = 0; tip.style.opacity = 0;
+    const last = chartPts.at(-1);
+    marker.setAttribute('cx', last.x); marker.setAttribute('cy', last.y);
+  });
+}
+
+const MODE_TEXT = {
+  ai: 'KI-Briefing', ai_retry: 'KI · zweiter Versuch',
+  ai_gemini: 'KI · Ersatzmodell',
+  fallback: 'Regelbasiert — Sprachmodell nicht verfügbar',
+};
+
 function renderFacts(d){
   const fs = d.fact_sheet, p = fs.portfolios[0] || {};
   const errs = fs.findings.filter(f=>f.severity==='error').length;
@@ -210,8 +318,8 @@ function renderFacts(d){
         <div class="k">Befunde</div><div class="v">${errs}</div>
         <div class="s">von ${fs.findings.length} gesamt</div></div>
       <div class="tile"><div class="k">Rendite 3M</div>
-        <div class="v">${p.perf_3m_pct!=null?(p.perf_3m_pct>0?'+':'')+p.perf_3m_pct+'%':'—'}</div>
-        <div class="s">YTD ${p.perf_ytd_pct!=null?p.perf_ytd_pct+'%':'—'}</div></div>
+        <div class="v">${pct(p.perf_3m_pct)}</div>
+        <div class="s">YTD ${pct(p.perf_ytd_pct, false)}</div></div>
       <div class="tile"><div class="k">Liquidität</div>
         <div class="v">${chf(fs.total_liquidity_chf)}</div>
         <div class="s">${(100*fs.total_liquidity_chf/(fs.total_aum_chf||1)).toFixed(1)}% des Vermögens</div></div>
@@ -219,8 +327,10 @@ function renderFacts(d){
         <div class="v">${fs.open_proposals}</div><div class="s">&nbsp;</div></div>
     </div>
 
+    ${chartCard(p)}
+
     <div class="card" id="bcard">
-      <h2>60-Sekunden-Briefing</h2>
+      <h2 class="withbadge">60-Sekunden-Briefing<span id="modebadge"></span></h2>
       <div class="loader" id="loader">
         <div class="srcs">
           <span class="src" data-s="0">Portfolio &amp; Positionen</span>
@@ -246,6 +356,7 @@ function renderFacts(d){
           <div class="d">${esc(f.detail)}</div>
         </div>`).join('')}
     </div>`;
+  wireChart();
 }
 
 $('#gen').onclick = async () => {
@@ -288,6 +399,11 @@ $('#gen').onclick = async () => {
 
 function renderBriefing(d){
   const b = d.briefing;
+  const badge = $('#modebadge');
+  if(badge){
+    badge.className = 'modebadge m-' + (d.mode||'ai');
+    badge.textContent = MODE_TEXT[d.mode] || d.mode || '';
+  }
   $('#bout').innerHTML = `
     <div class="headline">${esc(b.headline)}</div>
     ${b.sections.map(s=>`
@@ -314,6 +430,39 @@ function renderBriefing(d){
                          :'· <b style="color:var(--green)">Validator sauber</b>'}</span>
     </div>`;
 }
+
+// ---- Upload eines unbekannten Klienten -------------------------------------
+$('#uploadbtn').onclick = () => $('#uploadinput').click();
+
+$('#uploadinput').onchange = async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const btn = $('#uploadbtn');
+  const label = btn.textContent;
+  btn.textContent = 'Lade …'; btn.disabled = true;
+
+  try{
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/upload', {method:'POST', body:form});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+
+    await boot();
+    const ref = (data.refs && data.refs[0]) || (data.added_client_refs||[])[0];
+    if(ref) await select(ref);
+    btn.textContent = `${data.added} geladen`;
+    setTimeout(()=>{ btn.textContent = label; }, 3000);
+  }catch(err){
+    btn.textContent = label;
+    const main = $('#main');
+    if(main) main.insertAdjacentHTML('afterbegin',
+      `<div class="card"><div class="notice"><b>Upload fehlgeschlagen.</b><br>${esc(err.message)}</div></div>`);
+  }finally{
+    btn.disabled = false;
+    e.target.value = '';
+  }
+};
 
 boot();
 </script>
