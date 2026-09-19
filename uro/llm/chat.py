@@ -117,13 +117,17 @@ def _rule_based_fallback_answer(
     if "volatil" in q_lower and ("positive" in q_lower or "performance" in q_lower or "breach" in q_lower):
         risk_breaches = [f for f in fact_sheet.findings if "risk-breach" in f.id]
         if risk_breaches:
+            # Nur aus geprüften Fakten zusammensetzen: keine unbedingte Behauptung "performance is positive"
+            # oder "due to concentration" — beides wird nur genannt, wenn ein Finding es belegt.
             rb = risk_breaches[0]
-            conc_findings = [f for f in fact_sheet.findings if "conc-" in f.id]
-            conc_ref = f" [{conc_findings[0].id}]" if conc_findings else ""
-            return (
-                f"While past performance is positive, portfolio volatility exceeds the profile limit due to high concentration. "
-                f"{rb.title} [{rb.id}]{conc_ref}."
-            )
+            parts = [f"{rb.title} [{rb.id}]."]
+            perf = next((f for f in fact_sheet.findings if f.id.startswith("perf-") and f.numbers), None)
+            if perf:
+                parts.append(f"Performance: {perf.title} [{perf.id}].")
+            conc = next((f for f in fact_sheet.findings if f.id.startswith("conc-single-")), None)
+            if conc:
+                parts.append(f"Largest concentration: {conc.title} [{conc.id}].")
+            return " ".join(parts)
 
     # Question 2: Semiconductor or specific sector exposure
     if "semiconductor" in q_lower or "chip" in q_lower:

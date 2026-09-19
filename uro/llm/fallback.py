@@ -26,6 +26,36 @@ from uro.models import (
 )
 
 
+def _cut(text: str, limit: int) -> str:
+    """An einer Wortgrenze kürzen: nie mitten in einer Zahl ("CHF 11." aus "CHF 11,500" wäre eine erfundene Zahl)."""
+    if len(text) <= limit:
+        return text
+    return text[: limit - 2].rsplit(" ", 1)[0].rstrip(" ,;:(") + " …"
+
+
+_ACTIONABLE_TYPES = {
+    FindingType.SUITABILITY_VIOLATION,
+    FindingType.RISK_PROFILE,
+    FindingType.SAA_DEVIATION,
+    FindingType.CONCENTRATION,
+    FindingType.OPEN_PROPOSAL,
+    FindingType.LIQUIDITY,
+    FindingType.OPEN_ITEM,
+    FindingType.ESG,
+}
+
+
+def _actionable(finding: Finding) -> bool:
+    """Nur Befunde, aus denen eine Handlung folgt. `saa-none-*` sagt "keine SAA hinterlegt" — daraus
+    folgt kein Rebalancing auf SAA-Ziele (CASE-003 bekam früher genau das)."""
+    if finding.type not in _ACTIONABLE_TYPES or finding.id.startswith("saa-none-"):
+        return False
+    return finding.severity != Severity.INFO or finding.type in (
+        FindingType.OPEN_PROPOSAL,
+        FindingType.OPEN_ITEM,
+    )
+
+
 def _map_action(finding: Finding) -> NextBestAction:
     """Deterministically maps a Finding to a NextBestAction."""
     ft = finding.type
@@ -78,6 +108,15 @@ def _map_action(finding: Finding) -> NextBestAction:
             priority=2,
             kind=ActionKind.FOLLOW_UP_PROPOSAL,
         )
+    if ft == FindingType.LIQUIDITY and finding.severity == Severity.ERROR:
+        # Ungedeckter Bedarf (liq-need): Liquidität beschaffen, nicht wiederanlegen
+        return NextBestAction(
+            action=f"Raise liquidity before the need falls due: {finding.title}",
+            rationale="The client's stated cash need is not covered by current liquidity.",
+            finding_ids=[finding.id],
+            priority=1,
+            kind=ActionKind.CLIENT_FOLLOW_UP,
+        )
     if ft == FindingType.LIQUIDITY:
         return NextBestAction(
             action=f"Review liquidity: {finding.title}",
@@ -85,6 +124,14 @@ def _map_action(finding: Finding) -> NextBestAction:
             finding_ids=[finding.id],
             priority=3,
             kind=ActionKind.REINVEST_LIQUIDITY,
+        )
+    if ft == FindingType.OPEN_ITEM:
+        return NextBestAction(
+            action=f"Follow up: {finding.title}",
+            rationale="Open item derived from the client record.",
+            finding_ids=[finding.id],
+            priority=3,
+            kind=ActionKind.UPDATE_PROFILE if "profile" in finding.id else ActionKind.CLIENT_FOLLOW_UP,
         )
 
     return NextBestAction(
@@ -112,10 +159,7 @@ def template_briefing(fs: FactSheet) -> Briefing:
 
     # Helper to create statement
     def make_stmt(f: Finding, st_type: StatementType) -> Statement:
-        text = f"{f.title}. {f.detail}".strip()
-        if len(text) > 220:
-            text = text[:217] + "..."
-        return Statement(text=text, type=st_type, finding_ids=[f.id])
+        return Statement(text=_cut(f"{f.title}. {f.detail}".strip(), 220), type=st_type, finding_ids=[f.id])
 
     # 2. Section 1: Recent Portfolio Development
     dev_findings = (
@@ -176,22 +220,20 @@ def template_briefing(fs: FactSheet) -> Briefing:
     actions: list[NextBestAction] = []
     seen_action_ids: set[str] = set()
 
-    action_candidates = (
-        by_type.get(FindingType.SUITABILITY_VIOLATION, [])
-        + by_type.get(FindingType.RISK_PROFILE, [])
-        + by_type.get(FindingType.SAA_DEVIATION, [])
-        + by_type.get(FindingType.CONCENTRATION, [])
-        + by_type.get(FindingType.OPEN_PROPOSAL, [])
-        + by_type.get(FindingType.LIQUIDITY, [])
-        + top_findings
-    )
+    # Nach Dringlichkeit (Engine-Score), nicht nach fester Typ-Reihenfolge — sonst verdrängt z. B. bei CASE-012
+    # eine Verstoss-Liste den ungedeckten Liquiditätsbedarf. Nur handlungsfähige Befunde, je Typ höchstens einer.
+    action_candidates = sorted((f for f in findings if _actionable(f)), key=lambda f: f.score, reverse=True)
+    seen_types: set[FindingType] = set()
     for f in action_candidates:
-        if f.id in seen_action_ids:
+        if f.id in seen_action_ids or f.type in seen_types:
             continue
         actions.append(_map_action(f))
         seen_action_ids.add(f.id)
+        seen_types.add(f.type)
         if len(actions) >= 3:
             break
+    for i, a in enumerate(actions, start=1):
+        a.priority = i
 
     if not actions and findings:
         actions.append(_map_action(findings[0]))
@@ -213,7 +255,7 @@ def template_briefing(fs: FactSheet) -> Briefing:
         questions.append(
             LikelyQuestion(
                 question=f"What is driving {q_f.title}?",
-                answer_hint=f"Refer to {q_f.detail[:100]}.",
+                answer_hint=f"Refer to {_cut(q_f.detail, 100)}",
             )
         )
     if len(top_findings) > 1:

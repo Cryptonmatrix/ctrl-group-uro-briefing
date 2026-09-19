@@ -59,7 +59,13 @@ def _process(client, reference, with_briefings: bool, with_market: bool) -> dict
             out["issues"] = len(issues)
             out["unsupported"] = sum(1 for i in issues if i.kind == "unsupported_number")
             out["mode"] = mode
-        out["ok"] = True
+        # Ein Detektor, der intern scheitert, endet in coverage als "error: …" — das ist ein Fehlschlag,
+        # kein Erfolg (Review P2 #18). Fehlende Daten ("no_data") bleiben erlaubt.
+        broken = {k: v for k, v in fs.coverage.items() if str(v).startswith("error")}
+        if broken:
+            out["error"] = f"detector errors: {broken}"
+        else:
+            out["ok"] = True
     except Exception as exc:  # noqa: BLE001 — jeder Fehler soll im Bericht stehen
         out["error"] = f"{type(exc).__name__}: {exc}"
     return out

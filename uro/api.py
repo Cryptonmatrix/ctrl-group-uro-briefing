@@ -181,7 +181,9 @@ def client_briefing(ref: str) -> dict[str, Any]:
             fs = enrich_fact_sheet(fs, market=snapshot, intents=_intents[ref], client=record)
         except Exception as exc:  # noqa: BLE001
             fs.warnings.append(f"Anreicherung fehlgeschlagen ({type(exc).__name__})")
-        _enriched[ref] = fs
+        # Nur mit Live-Marktdaten cachen: ein einmaliger Ausfall (WLAN-Wackler) soll nicht bis zum Reset kleben
+        if snapshot is not None and snapshot.source == "live":
+            _enriched[ref] = fs
     enrich_ms = int((time.perf_counter() - t_enrich) * 1000)
 
     # --- Briefing. generate_briefing faellt intern auf ein Template zurueck,
@@ -268,11 +270,13 @@ def client_report(ref: str) -> str:
         raise HTTPException(
             status_code=409,
             detail="Für diesen Klienten wurde noch kein Briefing erzeugt. "
-                   "Zuerst „Generate Briefing“, dann das Protokoll.",
+            "Zuerst „Generate Briefing“, dann das Protokoll.",
         )
     fs = _enriched.get(ref) or _facts_cached(ref)
     result = BriefingResult(
-        client_ref=ref, briefing=briefing, fact_sheet=fs,
+        client_ref=ref,
+        briefing=briefing,
+        fact_sheet=fs,
         display_name=_find(ref).get("_DisplayName", ref),
         mode=_modes.get(ref, "ai"),
     )
