@@ -119,11 +119,18 @@ button{font:inherit;cursor:pointer}
 /* Kursverlauf. Eine Serie, also keine Legende — die Ueberschrift benennt sie. */
 .chartcard{position:relative}
 .chartwrap{position:relative;padding:6px 13px 10px}
-.chartwrap svg{display:block;width:100%;height:96px;overflow:visible}
+.chartwrap svg{display:block;width:100%;height:150px;overflow:visible}
 .chartwrap .axis{stroke:var(--line);stroke-width:1}
 .chartwrap .line{fill:none;stroke:var(--uro-blue);stroke-width:2;
   stroke-linejoin:round;stroke-linecap:round}
-.chartwrap .area{fill:var(--uro-blue);opacity:.08}
+.chartwrap .area{opacity:.13}
+.chartwrap .area.up{fill:var(--green)}
+.chartwrap .area.down{fill:var(--uro-red)}
+.chartwrap .grid{stroke:var(--line);stroke-width:1;opacity:.7}
+.chartwrap .baseline{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3;opacity:.8}
+.chartwrap .lbl.base{fill:var(--muted);font-weight:600}
+.chg{font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;margin-left:auto}
+.chg.up{color:var(--green)} .chg.down{color:var(--uro-red)}
 .chartwrap .endpt{fill:var(--uro-blue);stroke:#fff;stroke-width:2}
 .chartwrap .lbl{font-size:10px;fill:var(--muted)}
 .chartwrap .cross{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 2;opacity:0}
@@ -229,45 +236,75 @@ async function select(ref){
 // Kursverlauf des Portfolios. Eine Serie, 2px-Linie, zurueckhaltende Achse,
 // Hover-Ebene mit Fadenkreuz — nur Anfang, Tief, Hoch und Ende beschriftet,
 // keine Zahl an jedem Punkt.
-const CHART_W = 600, CHART_H = 100, PAD_Y = 12;
+const CHART_W = 600, CHART_H = 150, PAD_T = 14, PAD_B = 22, PAD_R = 62;
 let chartPts = [];
 
 function chartCard(p){
   const h = (p.history||[]).filter(x=>x && x.value!=null);
   if(h.length < 3) return '';
-  const vals = h.map(x=>x.value), lo = Math.min(...vals), hi = Math.max(...vals);
-  const span = (hi-lo) || 1;
-  const x = i => i*(CHART_W/(h.length-1));
-  const y = v => PAD_Y + (CHART_H-2*PAD_Y) * (1-(v-lo)/span);
+  const vals = h.map(x=>x.value);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  // Startwert muss in die Skala passen, sonst liegt die Referenzlinie ausserhalb.
+  const base = h[0].value;
+  const yLo = Math.min(lo, base), yHi = Math.max(hi, base);
+  const span = (yHi - yLo) || 1;
+  const plotW = CHART_W - PAD_R, plotH = CHART_H - PAD_T - PAD_B;
+  const x = i => i * (plotW/(h.length-1));
+  const y = v => PAD_T + plotH * (1 - (v-yLo)/span);
   chartPts = h.map((d,i)=>({x:x(i), y:y(d.value), date:d.date, value:d.value}));
 
   const line = chartPts.map((pt,i)=>`${i?'L':'M'}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join('');
-  const area = `${line}L${CHART_W},${CHART_H}L0,${CHART_H}Z`;
-  const first = h[0], last = h[h.length-1];
-  const change = ((last.value/first.value)-1)*100;
-  const iLo = vals.indexOf(lo), iHi = vals.indexOf(hi);
+  const yBase = y(base);
+  // Flaeche zwischen Kurs und Startwert: sichtbar machen, wann das Depot
+  // ueber und wann unter dem Ausgangswert lag.
+  const area = `${line}L${plotW},${yBase}L0,${yBase}Z`;
+
+  const last = h[h.length-1];
+  const change = ((last.value/base)-1)*100;
+  const up = change >= 0;
+
+  // Werteachse: drei Marken reichen. Mehr Linien lenken von der Kurve ab.
+  // Marken, die zu nah an der Startlinie liegen, fallen weg — sonst ueberlappen
+  // die Beschriftungen. Der Startwert ist wichtiger als eine runde Zahl daneben.
+  const ticks = [yHi, (yHi+yLo)/2, yLo].filter(v => Math.abs(y(v)-y(base)) > 11).map(v => `
+    <line class="grid" x1="0" y1="${y(v).toFixed(1)}" x2="${plotW}" y2="${y(v).toFixed(1)}"
+          vector-effect="non-scaling-stroke"/>
+    <text class="lbl" x="${plotW+8}" y="${(y(v)+3.5).toFixed(1)}">${chf(v)}</text>`).join('');
+
+  // Zeitachse: nur Jahreswechsel, sonst ueberlappen die Beschriftungen.
+  const years = [];
+  h.forEach((d,i)=>{
+    const yr = (d.date||'').slice(0,4);
+    if(yr && !years.some(v=>v.yr===yr)) years.push({yr, i});
+  });
+  const xticks = years.map(v => `
+    <text class="lbl" x="${x(v.i).toFixed(1)}" y="${CHART_H-6}" text-anchor="middle">${v.yr}</text>`).join('');
 
   return `
     <div class="card chartcard">
-      <h2>Kursverlauf · ${h.length} Monate · ${change>=0?'+':''}${change.toFixed(1)}%</h2>
+      <h2 class="withbadge">Kursverlauf
+        <span class="chg ${up?'up':'down'}">${up?'+':''}${change.toFixed(1)}% seit ${(h[0].date||'').slice(0,7)}</span>
+      </h2>
       <div class="chartwrap" id="chartwrap">
         <svg viewBox="0 0 ${CHART_W} ${CHART_H}" preserveAspectRatio="none">
-          <path class="area" d="${area}"/>
-          <path class="line" d="${line}" vector-effect="non-scaling-stroke"/>
-          <line class="axis" x1="0" y1="${CHART_H}" x2="${CHART_W}" y2="${CHART_H}"
+          ${ticks}
+          <path class="area ${up?'up':'down'}" d="${area}"/>
+          <line class="baseline" x1="0" y1="${yBase.toFixed(1)}" x2="${plotW}" y2="${yBase.toFixed(1)}"
                 vector-effect="non-scaling-stroke"/>
-          <line class="cross" id="cross" y1="0" y2="${CHART_H}" vector-effect="non-scaling-stroke"/>
-          <circle class="endpt" id="marker" r="4" cx="${chartPts.at(-1).x}"
-                  cy="${chartPts.at(-1).y}" vector-effect="non-scaling-stroke"/>
-          <rect class="hit" id="hit" x="0" y="0" width="${CHART_W}" height="${CHART_H}"/>
+          <text class="lbl base" x="${plotW+8}" y="${(yBase+3.5).toFixed(1)}">Start</text>
+          <path class="line" d="${line}" vector-effect="non-scaling-stroke"/>
+          ${xticks}
+          <line class="cross" id="cross" y1="${PAD_T}" y2="${CHART_H-PAD_B}" vector-effect="non-scaling-stroke"/>
+          <circle class="endpt" id="marker" r="4" cx="${chartPts.at(-1).x.toFixed(1)}"
+                  cy="${chartPts.at(-1).y.toFixed(1)}" vector-effect="non-scaling-stroke"/>
+          <rect class="hit" id="hit" x="0" y="0" width="${plotW}" height="${CHART_H}"/>
         </svg>
         <div class="tip" id="tip"></div>
       </div>
       <div class="legend">
-        <span>${first.date?.slice(0,7)||''}</span>
-        <span>Tief ${chf(lo)} (${h[iLo].date?.slice(0,7)||''})</span>
-        <span>Hoch ${chf(hi)} (${h[iHi].date?.slice(0,7)||''})</span>
-        <span style="margin-left:auto">${last.date?.slice(0,7)||''} · <b>CHF ${chf(last.value)}</b></span>
+        <span>Tief <b>${chf(lo)}</b> (${(h[vals.indexOf(lo)].date||'').slice(0,7)})</span>
+        <span>Hoch <b>${chf(hi)}</b> (${(h[vals.indexOf(hi)].date||'').slice(0,7)})</span>
+        <span style="margin-left:auto">Stand ${(last.date||'').slice(0,7)} · <b>CHF ${chf(last.value)}</b></span>
       </div>
     </div>`;
 }
@@ -277,7 +314,7 @@ function wireChart(){
   const hit = $('#hit'), cross = $('#cross'), marker = $('#marker'), tip = $('#tip');
   const show = e => {
     const r = wrap.getBoundingClientRect();
-    const frac = Math.max(0, Math.min(1, (e.clientX - r.left)/r.width));
+    const frac = Math.max(0, Math.min(1, ((e.clientX - r.left)/r.width) * (CHART_W/(CHART_W-PAD_R))));
     const pt = chartPts[Math.round(frac*(chartPts.length-1))];
     cross.setAttribute('x1', pt.x); cross.setAttribute('x2', pt.x);
     cross.style.opacity = 1;
