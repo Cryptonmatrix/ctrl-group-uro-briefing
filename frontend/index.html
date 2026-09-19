@@ -95,6 +95,7 @@ button{font:inherit;cursor:pointer}
   color:var(--muted);background:#fafafa;transition:all .25s}
 .src.done{border-color:var(--green);color:var(--green);background:#f2fbf6}
 .src.done::before{content:"✓ "}
+.phase{font-size:11.5px;color:var(--muted);margin-top:9px;font-variant-numeric:tabular-nums}
 .bar{height:2px;background:#eee;overflow:hidden}
 .bar i{display:block;height:100%;width:30%;background:var(--uro-blue);
   animation:slide 1.1s infinite ease-in-out}
@@ -228,6 +229,7 @@ function renderFacts(d){
           <span class="src" data-s="3">House View</span>
         </div>
         <div class="bar"><i></i></div>
+        <div class="phase" id="phase">Befunde werden zusammengestellt …</div>
       </div>
       <div id="bout"><div class="empty">„Generate Briefing" oben rechts.</div></div>
     </div>
@@ -254,12 +256,23 @@ $('#gen').onclick = async () => {
   const srcs = document.querySelectorAll('.src');
   srcs.forEach((s,i)=>setTimeout(()=>s.classList.add('done'), 220+i*260));
 
+  // Ohne laufende Anzeige wirken 20 Sekunden wie ein Absturz.
+  const t0 = Date.now();
+  const phase = $('#phase');
+  const tick = setInterval(()=>{
+    const s = ((Date.now()-t0)/1000).toFixed(1);
+    phase.textContent = s < 1.5
+      ? `Befunde werden zusammengestellt … ${s}s`
+      : `Claude formuliert das Briefing … ${s}s`;
+  }, 100);
+
   let res, data;
   try{
     res = await fetch(`/api/clients/${current}/briefing`, {method:'POST'});
     data = await res.json();
   }catch(e){ data = {detail:'Server nicht erreichbar: '+e.message}; res = {ok:false}; }
 
+  clearInterval(tick);
   $('#loader').classList.remove('on');
   srcs.forEach(s=>s.classList.remove('done'));
   $('#gen').disabled = false;
