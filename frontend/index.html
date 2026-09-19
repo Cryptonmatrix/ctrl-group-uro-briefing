@@ -188,7 +188,7 @@ button{font:inherit;cursor:pointer}
     <button class="action">Analyse</button>
     <button class="action">Kundeninformation</button>
     <button class="action" id="report" disabled title="Erst ein Briefing erzeugen">Protokoll</button>
-    <button class="action" id="emailbtn" disabled title="Erst ein Briefing erzeugen">Follow-up E-Mail</button>
+    <button class="action" id="emailbtn" disabled title="Erst ein Briefing erzeugen">Nachfass-E-Mail</button>
     <button class="action primary" id="gen" disabled>Generate Briefing</button>
   </div>
 </div>
@@ -525,7 +525,7 @@ function renderBriefing(d){
   const eb = $('#emailbtn');
   if(eb){
     eb.disabled = false;
-    eb.title = 'Follow-up E-Mail & Sales Guidance öffnen';
+    eb.title = 'Nachfass-E-Mail & Vertriebsnotizen öffnen';
   }
   const badge = $('#modebadge');
   if(badge){

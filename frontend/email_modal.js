@@ -73,7 +73,7 @@
     <div id="emailmodal">
       <div class="em-box">
         <div class="em-head">
-          <h3><span>✉️</span> Follow-up E-Mail & Sales Guidance</h3>
+          <h3><span>✉️</span> Nachfass-E-Mail & Vertriebsnotizen</h3>
           <span class="em-mode ai" id="em_mode">KI-generiert</span>
           <span class="spacer"></span>
           <div class="em-lang">
@@ -112,7 +112,7 @@
       renderEmail(data);
     } catch (err) {
       box.innerHTML = `<div class="em-col left" style="grid-column:1/-1;padding:24px;color:var(--uro-red)">
-        <b>Fehler beim Erstellen der Follow-up E-Mail:</b><br>${h(err.message)}</div>`;
+        <b>Fehler beim Erstellen der Nachfass-E-Mail:</b><br>${h(err.message)}</div>`;
     }
   }
 
