@@ -324,3 +324,169 @@ informationsdicht — kein Consumer-Look, keine grossen Schatten, keine verspiel
 „01 - Liquidity > 10%", „03 - Last Consultation > 12 Months", „04 - Rule Violations (urgent)",
 „05 - Birthdays". Der Berater denkt bereits in diesen Kategorien. Wenn unser Briefing dieselbe
 Sprache spricht, fügt es sich ein, statt danebenzustehen.
+
+
+---
+
+## 12. Sprech-Drehbuch — 5 Minuten plus Fragen
+
+**Aufteilung:** Vier Folien, eine Demo. Die Demo ist der Hauptteil, nicht die Folien.
+Die Jury will sehen, dass es läuft, nicht hören, dass es laufen würde.
+
+**Vorher zwingend:** Server läuft aus `~/dev/uro-briefing`, `.env` geladen, Demo-Klienten
+vorgewärmt, Browser auf `localhost:8777`, zweites Fenster mit dem Terminal für den Fall
+der Fälle. Seite **nicht** neu laden während des Pitches.
+
+---
+
+### Folie 1 — Titel (0:00–0:15)
+
+Nur Produktname, Team, Case. Kein Text zum Vorlesen.
+
+> „Wir sind [Namen]. Wir haben einen Briefing-Assistenten für Vermögensberater gebaut."
+
+---
+
+### Folie 2 — Das Problem (0:15–0:50)
+
+Auf der Folie: **500 Klienten je Berater · 4 Systeme · 60 Sekunden Vorbereitung**
+
+> „Ein Berater betreut fünfhundert Klienten. Wenn einer unangekündigt anruft, hat er keine
+> Stunde Vorbereitung — er hat Sekunden. Die Informationen existieren: Portfolio, CRM,
+> Marktnews, die Hausmeinung der Bank. Nur liegen sie in vier verschiedenen Systemen, und
+> niemand öffnet vier Systeme, während das Telefon klingelt."
+
+Überleitung, ohne Pause:
+
+> „Wir zeigen es Ihnen direkt."
+
+**Nicht sagen:** „Wir haben ein Tool gebaut, das…" — zeigt, statt anzukündigen.
+
+---
+
+### Demo (0:50–3:10) — der Hauptteil
+
+**Klient 1: Ron Burgundy (CASE-003)** — bereits ausgewählt, Chart sichtbar.
+
+> „Ron Burgundy. Bevor wir irgendetwas erzeugen, sehen Sie schon die Kennzahlen: Vermögen,
+> Volatilität gegen das Profillimit, Liquidität. Die Engine rechnet in Millisekunden — der
+> Berater sieht nie einen leeren Bildschirm."
+
+Klick auf **Generate Briefing**. Während es lädt:
+
+> „Was jetzt läuft: Kursdaten, News zu den grössten Positionen, die Hausmeinung. Die Chips
+> unten leuchten erst, wenn eine Quelle im Briefing tatsächlich belegt ist — nicht nach
+> Zeitplan."
+
+Briefing erscheint. **Auf die Headline zeigen:**
+
+> „Zweihundert Wörter, in sechzig Sekunden lesbar. Und jede Aussage trägt ihre Quelle."
+
+**Auf eine Finding-ID zeigen** — das ist der wichtigste Moment des Pitches:
+
+> „Dieses Kürzel ist keine Dekoration. Unsere Analytik hat die Zahl berechnet, das
+> Sprachmodell durfte sie nur formulieren. Ein Validator prüft danach jede Zahl im Text
+> gegen die Datenbasis und entfernt, was nicht gedeckt ist."
+
+**Auf den Volatilitäts-Befund zeigen** — hier die Formulierung genau einhalten:
+
+> „Zwanzig Prozent Volatilität gegen ein Profillimit von zwölf. Die Bank meldet hier keinen
+> Verstoss — völlig zu Recht, denn es ist ein Execution-only-Mandat, und dort findet keine
+> Eignungsprüfung statt. Wir zeigen dem Berater trotzdem, was ausserhalb des Prüfumfangs
+> liegt. Nicht als Vorwurf, sondern als Verkaufsanlass: Das ist der perfekte Moment, ein
+> Beratungsmandat anzubieten."
+
+**Chat** — eine Frage, nicht mehr:
+
+> „Während des Gesprächs kann der Berater nachfragen." — Frage eintippen, Antwort zeigen.
+> „Dieselbe Datenbasis wie das Briefing. Der Chat kann dem Briefing nicht widersprechen."
+
+**Protokoll:**
+
+> „Nach dem Gespräch: ein Protokoll zum Ausdrucken, mit den vereinbarten Schritten und
+> Feldern für Verantwortlichkeit und Frist."
+
+**Upload — der Moment für die Robustheit:**
+
+> „Und jetzt der Klient, den wir nie gesehen haben."
+
+Datei laden, neuer Klient erscheint oben mit NEU, Briefing erzeugen.
+
+---
+
+### Folie 3 — Wie es funktioniert (3:10–3:50)
+
+Auf der Folie das Pipeline-Diagramm aus `CLAUDE.md` §3.
+
+> „Der Kern ist eine Arbeitsteilung. Eine deterministische Engine berechnet **alle** Zahlen
+> und erzeugt typisierte Befunde mit eindeutiger ID. Das Sprachmodell bekommt nur diese
+> Befunde — es darf priorisieren, verknüpfen und formulieren, aber nicht rechnen. Danach
+> prüft ein Validator jede Zahl gegen die Befunde."
+
+Der Satz, der sitzen muss — langsam:
+
+> **„Unser System kann keine Zahl erfinden, weil es keine Zahl selbst rechnet."**
+
+Wenn Zeit bleibt, die Auswahlformel in einem Satz:
+
+> „Welche Befunde es ins Briefing schaffen, entscheidet eine Formel: Schweregrad mal
+> betroffener Betrag mal Kundenrelevanz mal Aktualität. Top drei bis fünf, der Rest bleibt
+> im Chat abrufbar."
+
+---
+
+### Folie 4 — Der Beweis (3:50–4:30)
+
+Auf der Folie nur diese Zahlen, gross:
+
+| | |
+|---|---|
+| Briefings erzeugt | **47 / 47** |
+| Unbelegte Zahlen | **5 gefunden und entfernt** |
+| Durchschnitt | **13,4 s · 209 Wörter** |
+
+> „Wir haben das nicht an einem geprobten Demo-Fall gemessen, sondern an allen
+> siebenundvierzig Klienten des Datensatzes. Siebenundvierzig Briefings, im Schnitt
+> dreizehn Sekunden, zweihundertneun Wörter. Der Validator hat fünf Aussagen verworfen,
+> deren Zahlen nicht gedeckt waren. **Was beim Berater ankommt, ist zu hundert Prozent
+> belegt.**"
+
+Und der ungeplante Robustheitsbeweis — der wirkt, weil er echt ist:
+
+> „Heute Nacht ist uns mitten im Testlauf das API-Guthaben ausgegangen. Das System hat
+> trotzdem siebenundvierzig von siebenundvierzig Briefings ausgeliefert — regelbasiert, in
+> vier Zehntelsekunden, und in der Oberfläche als solche gekennzeichnet. Kein Berater steht
+> vor einem leeren Bildschirm."
+
+---
+
+### Folie 5 — Produktionsweg (4:30–5:00)
+
+Links **Mock**, rechts **Produktion** — die Tabelle aus §3 dieser Datei.
+
+> „Was heute Mock ist und was in Produktion daran kommt, haben wir sauber getrennt: Statt
+> der Flat Files die URO-API, statt Yahoo Finance ein lizenzierter Feed, statt unseres
+> kodierten CIO-Ausblicks Ihre eigene Hausmeinung aus dem CIO-Prozess. Die Architektur ist
+> darauf ausgelegt — die Analytik kennt kein Netz, das Sprachmodell nur eine Schicht."
+
+Abschluss, direkt:
+
+> „Wir würden das gern mit fünf bis zehn Beratern pilotieren und messen, was es an
+> Vorbereitungszeit spart. Danke."
+
+**Nicht** mit „Habt ihr Fragen?" enden — das gibt die Bühne ab. Mit dem Pilot-Angebot enden
+und schweigen.
+
+---
+
+### Wenn die Zeit knapp wird
+
+In dieser Reihenfolge streichen: die Auswahlformel auf Folie 3, das Protokoll in der Demo,
+den Chat in der Demo. **Niemals streichen:** die Finding-ID, den Volatilitäts-Befund und
+den Upload — das sind die drei Momente, die euch von den anderen Teams unterscheiden.
+
+### Rollenverteilung
+
+Einer redet, einer bedient. Nicht wechseln. Wer bedient, sagt nichts — zwei Stimmen in
+fünf Minuten wirken unruhig. Der Bedienende hat das zweite Terminalfenster offen und
+startet im Notfall neu, ohne dass der Redende stoppt.
