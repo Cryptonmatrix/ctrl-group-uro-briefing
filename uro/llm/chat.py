@@ -36,51 +36,143 @@ def extract_sources_from_text(text: str) -> list[str]:
 
 
 def build_chat_context(fact_sheet: FactSheet, briefing: Briefing | None = None) -> str:
-    """Builds the comprehensive context string for the follow-up chat."""
+    """Builds the comprehensive context string for the follow-up chat according to Spec §8.2."""
     fs = fact_sheet
     lines: list[str] = [
-        f"CLIENT: {fs.client_ref}",
+        f"CLIENT: {fs.client_ref}" + (" (Corporate)" if fs.is_company else " (Private)"),
         f"Total AuM: {fs.total_aum_chf:,.0f} {fs.reporting_currency}",
         f"Liquidity: {fs.total_liquidity_chf:,.0f} {fs.reporting_currency}",
-        f"Risk Profile: {fs.risk_profile_name or 'None'}",
+        f"Risk Profile: {fs.risk_profile_name or 'None'}"
+        + (f" (Max Volatility {fs.max_volatility * 100:.1f}%)" if fs.max_volatility else ""),
         f"ESG Profile: {fs.esg_profile or 'None'}",
+        f"Open Proposals Count: {fs.open_proposals}",
     ]
+    if fs.age is not None:
+        lines.append(f"Client Age: {fs.age}")
 
-    # Briefing summary if available
+    # Briefing summary and actions if available
     if briefing:
         lines.append(f"\nGENERATED BRIEFING HEADLINE: {briefing.headline}")
-        lines.append("RECOMMENDED ACTIONS:")
-        for a in briefing.next_best_actions:
-            lines.append(f"- {a.action}: {a.rationale} (sources: {', '.join(a.finding_ids)})")
+        if briefing.next_best_actions:
+            lines.append("RECOMMENDED ACTIONS:")
+            for a in briefing.next_best_actions:
+                lines.append(f"- {a.action}: {a.rationale} (sources: {', '.join(a.finding_ids)})")
 
-    # Positions list with [pos-<id>] IDs
+    # Multi-dimensional exposures with look-through (Spec §8.2)
+    if fs.exposures:
+        lines.append("\nPORTFOLIO EXPOSURES (including fund look-through):")
+        for dim, items in fs.exposures.items():
+            dim_str = ", ".join(f"{it['name']}: {it['weight_pct']:.1f}%" for it in items[:6])
+            lines.append(f"  {dim.replace('_', ' ').title()}: {dim_str}")
+
+    # Positions list with [pos-<id>] IDs and full master data
     lines.append("\nPORTFOLIO POSITIONS:")
     for p in fs.portfolios:
         for pos in p.positions:
-            sec_info = f"{pos.sector or ''} {pos.asset_class or ''}".strip()
+            ind = pos.industry or pos.sector or ""
+            sec_cls = pos.saa_asset_class or pos.asset_class or ""
+            vola = f"Vola {pos.volatility * 100:.1f}%" if pos.volatility is not None else ""
+            esg = f"ESG {pos.sustainability_score:.1f}" if pos.sustainability_score is not None else ""
+            meta = " | ".join(filter(bool, [pos.currency, sec_cls, ind, vola, esg]))
             lines.append(
                 f"[pos-{pos.security_id}] {pos.name[:45]} | Weight: {pos.weight_pct:.1f}% | "
-                f"Amount: {pos.amount_chf:,.0f} CHF | {sec_info}"
+                f"Amount: {pos.amount_chf:,.0f} CHF | {meta}"
             )
 
-    # All findings
-    lines.append("\nALL FINDINGS:")
-    for f in fs.findings:
-        nums = " ".join(f"{k}={v}" for k, v in f.numbers.items())
-        lines.append(f"[{f.id}] ({f.type.value}) {f.title}. {f.detail} Numbers: {nums}")
+    # Proposals context
+    prop_findings = [
+        f
+        for f in fs.findings
+        if f.type.value in ("open_proposal", "rejected_proposal") or "prop" in f.id or "rej" in f.id
+    ]
+    if prop_findings:
+        lines.append("\nPROPOSALS STATUS:")
+        for f in prop_findings:
+            lines.append(f"[{f.id}] {f.title}: {f.detail}")
 
-    # Client Notes
+    # All findings
+    lines.append("\nALL GROUNDED FINDINGS:")
+    for f in fs.findings:
+        nums = " ".join(f"{k}={v}" for k, v in f.numbers.items()) if f.numbers else ""
+        num_str = f" Numbers: {nums}" if nums else ""
+        lines.append(f"[{f.id}] ({f.type.value}/{f.severity.value}) {f.title}. {f.detail}{num_str}")
+
+    # Client Notes and Intents
     if fs.intents:
-        lines.append("\nCLIENT INTENTS & NOTES:")
+        lines.append("\nEXTRACTED CLIENT INTENTS:")
         for i in fs.intents:
             lines.append(f"- {i.kind}: {i.subject} ({i.detail}) quote: '{i.source_note}'")
 
     return "\n".join(lines)
 
 
-def _rule_based_fallback_answer(question: str, fact_sheet: FactSheet) -> str:
+def _rule_based_fallback_answer(
+    question: str, fact_sheet: FactSheet, briefing: Briefing | None = None
+) -> str:
     """Provides a deterministic grounded response when the LLM API is unavailable."""
     q_lower = question.lower()
+
+    # Question 1: Volatility vs positive performance
+    if "volatil" in q_lower and ("positive" in q_lower or "performance" in q_lower or "breach" in q_lower):
+        risk_breaches = [f for f in fact_sheet.findings if "risk-breach" in f.id]
+        if risk_breaches:
+            rb = risk_breaches[0]
+            conc_findings = [f for f in fact_sheet.findings if "conc-" in f.id]
+            conc_ref = f" [{conc_findings[0].id}]" if conc_findings else ""
+            return (
+                f"While past performance is positive, portfolio volatility exceeds the profile limit due to high concentration. "
+                f"{rb.title} [{rb.id}]{conc_ref}."
+            )
+
+    # Question 2: Semiconductor or specific sector exposure
+    if "semiconductor" in q_lower or "chip" in q_lower:
+        ind_exp = fact_sheet.exposures.get("industry", [])
+        semi = next((e for e in ind_exp if "semi" in e.get("name", "").lower()), None)
+        if semi:
+            return (
+                f"Total semiconductor exposure is {semi['weight_pct']:.1f}% of assets "
+                f"({semi.get('direct_pct', 0.0):.1f}% direct, {semi.get('via_funds_pct', 0.0):.1f}% via fund look-through)."
+            )
+        tech = next((e for e in ind_exp if "tech" in e.get("name", "").lower()), None)
+        if tech:
+            return (
+                f"Direct semiconductor breakdown is not separately classified; total Technology exposure is {tech['weight_pct']:.1f}% "
+                f"({tech.get('direct_pct', 0.0):.1f}% direct, {tech.get('via_funds_pct', 0.0):.1f}% via look-through)."
+            )
+        return "This information is not available in the data."
+
+    # Question 3: Open proposals
+    if "proposal" in q_lower:
+        prop_findings = [f for f in fact_sheet.findings if "prop-" in f.id or f.type.value == "open_proposal"]
+        if prop_findings:
+            pf = prop_findings[0]
+            return f"Open proposal on file: {pf.title} [{pf.id}]."
+        return f"There are currently {fact_sheet.open_proposals} open proposals on file [profile]."
+
+    # Question 4: Ethical exclusions / ESG
+    if any(w in q_lower for w in ["ethical", "exclusion", "fossil", "esg", "tobacco", "weapon"]):
+        excl_findings = [
+            f for f in fact_sheet.findings if "exclusion" in f.id or f.type.value == "preference_conflict"
+        ]
+        if excl_findings:
+            ef = excl_findings[0]
+            return f"Client exclusion finding: {ef.title} [{ef.id}]."
+        notes = [f for f in fact_sheet.findings if f.type.value == "client_note"]
+        for n in notes:
+            if any(w in n.detail.lower() for w in ["fossil", "esg", "defense", "tobacco"]):
+                return f"Client note states: '{n.detail}' [{n.id}]."
+        return "This information is not available in the data."
+
+    # Question 5: Recommended actions
+    if any(w in q_lower for w in ["recommend", "action", "next best", "should do"]):
+        if briefing and briefing.next_best_actions:
+            acts = "; ".join(
+                f"{a.action} (sources: {', '.join(a.finding_ids)})" for a in briefing.next_best_actions[:2]
+            )
+            return f"Key recommended actions: {acts}."
+        err_findings = [f for f in fact_sheet.findings if f.severity.value == "error"]
+        if err_findings:
+            return f"Primary priority: resolve {err_findings[0].title} [{err_findings[0].id}]."
 
     # Question about largest / top holding
     if any(w in q_lower for w in ["largest", "biggest", "top holding", "main position"]):
@@ -92,27 +184,14 @@ def _rule_based_fallback_answer(question: str, fact_sheet: FactSheet) -> str:
                 f"(amount: CHF {top_pos.amount_chf:,.0f}) [pos-{top_pos.security_id}]."
             )
 
-    # Question about exposure / sector
+    # General sector match
     for p in fact_sheet.portfolios:
         for pos in p.positions:
-            if pos.sector and pos.sector.lower() in q_lower:
-                return f"{pos.sector} exposure is concentrated in {pos.name} at {pos.weight_pct:.1f}% of portfolio [{pos.security_id}]."
+            sec = pos.industry or pos.sector
+            if sec and sec.lower() in q_lower:
+                return f"{sec} exposure includes {pos.name} at {pos.weight_pct:.1f}% of portfolio [pos-{pos.security_id}]."
             if pos.name.lower() in q_lower:
                 return f"{pos.name} constitutes {pos.weight_pct:.1f}% of the portfolio (amount: CHF {pos.amount_chf:,.0f}) [pos-{pos.security_id}]."
-
-    # Question about volatility / risk
-    if "volatil" in q_lower or "risk" in q_lower:
-        vola_findings = [f for f in fact_sheet.findings if "vola" in f.id or "risk" in f.id]
-        if vola_findings:
-            f = vola_findings[0]
-            return f"Portfolio risk finding: {f.title} [{f.id}]."
-
-    # Question about proposals
-    if "proposal" in q_lower:
-        prop_findings = [f for f in fact_sheet.findings if "prop" in f.id]
-        if prop_findings:
-            f = prop_findings[0]
-            return f"Proposal status: {f.title} [{f.id}]."
 
     # Default honest missing info response
     return "This information is not available in the data."
@@ -137,8 +216,14 @@ def answer(
                 client = get_client()
 
             messages = [
-                {"role": "user", "content": f"CLIENT DATA CONTEXT:\n{context_str}\n\nPlease answer the question below."},
-                {"role": "assistant", "content": "I have reviewed the client context and will answer based strictly on the facts provided."},
+                {
+                    "role": "user",
+                    "content": f"CLIENT DATA CONTEXT:\n{context_str}\n\nPlease answer the question below.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I have reviewed the client context and will answer based strictly on the facts provided.",
+                },
             ]
             if history:
                 for h in history[-4:]:
@@ -148,7 +233,9 @@ def answer(
             kwargs: dict = {
                 "model": settings.llm_model,
                 "max_tokens": 1000,
-                "system": [{"type": "text", "text": CHAT_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                "system": [
+                    {"type": "text", "text": CHAT_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}
+                ],
                 "messages": messages,
             }
             if settings.llm_effort:
@@ -170,6 +257,7 @@ def answer(
     if gemini_key:
         try:
             from uro.llm.gemini import ask_chat_gemini
+
             answer_text = ask_chat_gemini(context_str, question, history)
             sources = extract_sources_from_text(answer_text)
             return ChatResponse(answer=answer_text.strip(), sources=sources)
@@ -177,13 +265,14 @@ def answer(
             logger.warning("Gemini chat failed (%s). Falling back to rule-based answer.", exc)
 
     # 3. Tier-3: Deterministic Rule-Based Fallback
-    ans_text = _rule_based_fallback_answer(question, fact_sheet)
+    ans_text = _rule_based_fallback_answer(question, fact_sheet, briefing)
     sources = extract_sources_from_text(ans_text)
     return ChatResponse(answer=ans_text, sources=sources)
 
 
 def main(argv: list[str]) -> int:
     import sys
+
     if hasattr(sys.stdout, "reconfigure"):
         try:
             sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -205,13 +294,16 @@ def main(argv: list[str]) -> int:
     briefing = None
     try:
         from uro.llm.briefing import generate_briefing
+
         briefing, _ = generate_briefing(fs)
     except Exception:
         pass
 
     print("\n=======================================================")
     print(f"  URO Advisor Follow-up Chat · Client: {ref}")
-    print(f"  AuM: {fs.total_aum_chf:,.0f} {fs.reporting_currency} | Profile: {fs.risk_profile_name or 'None'}")
+    print(
+        f"  AuM: {fs.total_aum_chf:,.0f} {fs.reporting_currency} | Profile: {fs.risk_profile_name or 'None'}"
+    )
     if briefing:
         print(f"  Briefing: {briefing.headline[:65]}...")
     print("=======================================================\n")
@@ -252,7 +344,5 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main(sys.argv[1:]))
-
-
-

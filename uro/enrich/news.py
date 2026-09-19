@@ -55,9 +55,7 @@ def parse_news_item(item: dict[str, Any]) -> dict[str, Any] | None:
         url = item.get("link") or ""
         pub_ts = item.get("providerPublishTime")
         pub_dt = (
-            datetime.fromtimestamp(pub_ts, tz=UTC)
-            if isinstance(pub_ts, (int, float))
-            else datetime.now(UTC)
+            datetime.fromtimestamp(pub_ts, tz=UTC) if isinstance(pub_ts, (int, float)) else datetime.now(UTC)
         )
         return {
             "title": str(title).strip(),

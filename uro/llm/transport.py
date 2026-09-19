@@ -51,7 +51,11 @@ class LLMBadRequest(LLMError):
 
 def post_messages(payload: dict, timeout: float = 60.0, retries: int = 1) -> dict:
     """Ein Aufruf an /v1/messages. Wirft immer eine LLMError-Unterklasse, nie stillschweigend."""
-    key = os.environ.get("ANTHROPIC_API_KEY")
+    # Umgebung zuerst, sonst .env über die Settings — dieselbe Quelle wie llm/client.get_client,
+    # damit ein Schlüssel, der nur in .env steht, nicht still ins Template-Fallback führt.
+    from uro.config import get_settings
+
+    key = (os.environ.get("ANTHROPIC_API_KEY") or get_settings().anthropic_api_key or "").strip()
     if not key:
         raise LLMAuthError("ANTHROPIC_API_KEY ist nicht gesetzt.")
 

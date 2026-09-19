@@ -82,15 +82,8 @@ def generate_briefing_gemini(fact_sheet: FactSheet) -> Briefing:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
     payload = {
-        "system_instruction": {
-            "parts": [{"text": SYSTEM_PROMPT}]
-        },
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": user_text}]
-            }
-        ],
+        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": user_text}]}],
         "generationConfig": {
             "response_mime_type": "application/json",
             "response_schema": get_gemini_briefing_schema(),
@@ -121,7 +114,9 @@ def generate_briefing_gemini(fact_sheet: FactSheet) -> Briefing:
 
     except httpx.HTTPStatusError as exc:
         logger.warning("Gemini HTTP error (%s): %s", exc.response.status_code, exc.response.text[:300])
-        raise LLMUnavailable(f"Gemini API returned status {exc.response.status_code}: {exc.response.text[:100]}") from exc
+        raise LLMUnavailable(
+            f"Gemini API returned status {exc.response.status_code}: {exc.response.text[:100]}"
+        ) from exc
     except Exception as exc:
         logger.warning("Gemini briefing generation failed: %s", exc)
         raise LLMInvalid(f"Gemini generation error: {exc}") from exc
@@ -140,11 +135,19 @@ def ask_chat_gemini(context_str: str, question: str, history: list[dict] | None 
     contents = [
         {
             "role": "user",
-            "parts": [{"text": f"CLIENT DATA CONTEXT:\n{context_str}\n\nPlease answer the question below strictly based on this data."}],
+            "parts": [
+                {
+                    "text": f"CLIENT DATA CONTEXT:\n{context_str}\n\nPlease answer the question below strictly based on this data."
+                }
+            ],
         },
         {
             "role": "model",
-            "parts": [{"text": "I have reviewed the client context and will answer based strictly on the facts provided, citing finding IDs or position IDs."}],
+            "parts": [
+                {
+                    "text": "I have reviewed the client context and will answer based strictly on the facts provided, citing finding IDs or position IDs."
+                }
+            ],
         },
     ]
     if history:
@@ -152,10 +155,12 @@ def ask_chat_gemini(context_str: str, question: str, history: list[dict] | None 
             role = "model" if h.get("role") == "assistant" else "user"
             contents.append({"role": role, "parts": [{"text": h.get("content", "")}]})
 
-    contents.append({
-        "role": "user",
-        "parts": [{"text": question}],
-    })
+    contents.append(
+        {
+            "role": "user",
+            "parts": [{"text": question}],
+        }
+    )
 
     payload = {
         "system_instruction": {
@@ -183,4 +188,3 @@ def ask_chat_gemini(context_str: str, question: str, history: list[dict] | None 
     except Exception as exc:
         logger.warning("Gemini chat failed: %s", exc)
         raise LLMUnavailable(f"Gemini chat unavailable: {exc}") from exc
-
