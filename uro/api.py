@@ -62,6 +62,16 @@ _new_refs: set[str] = set()
 # aus dem das Briefing entstand. Sonst widersprechen sich die beiden.
 _briefings: dict[str, Any] = {}
 
+# Zeitbudget fuer Kurse und News. Lieber ein Briefing ohne Marktkontext als
+# eines, das auf der Buehne nicht kommt.
+MARKET_BUDGET_SECONDS = 6.0
+
+# Angereicherte Fact Sheets und Notiz-Absichten je Klient. Beide kosten Zeit
+# (Netz bzw. ein LLM-Aufruf) und aendern sich zwischen zwei Klicks nicht.
+# Beide werden beim Upload und beim Reset mit _facts zusammen geleert.
+_enriched: dict[str, Any] = {}
+_intents: dict[str, Any] = {}
+
 
 def _facts_cached(ref: str):
     if ref not in _facts:
@@ -106,38 +116,66 @@ def client_facts(ref: str) -> dict[str, Any]:
 
 @app.post("/api/clients/{ref}/briefing")
 def client_briefing(ref: str) -> dict[str, Any]:
-    fs = _facts_cached(ref)
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise HTTPException(
-            status_code=503,
-            detail="ANTHROPIC_API_KEY fehlt. Die Engine laeuft, der Briefing-Text braucht einen Schlüssel.",
-        )
+    """Der Generate-Briefing-Knopf.
+
+    Reihenfolge ist Absicht: /facts hat die Befunde schon geliefert und steht
+    auf dem Schirm. Erst hier werden Kurse, News und Hausmeinung geholt — mit
+    Zeitbudget, damit die Demo nicht an einer langsamen Quelle haengt.
+    """
+    from uro.enrich import build_snapshot, enrich_fact_sheet
     from uro.llm.briefing import generate_briefing
+    from uro.llm.extract_notes import extract_intents
     from uro.llm.transport import (
-        LLMAuthError,
-        LLMBadRequest,
-        LLMError,
-        LLMRateLimit,
-        LLMServerError,
-        LLMTimeout,
+        LLMAuthError, LLMBadRequest, LLMError, LLMRateLimit, LLMServerError, LLMTimeout,
     )
     from uro.llm.validator import validate
 
-    t0 = time.perf_counter()
+    record = _find(ref)
+
+    # --- Anreicherung. Jede Stufe darf ausfallen, keine darf blockieren. ---
+    t_enrich = time.perf_counter()
+    if ref in _enriched:
+        fs = _enriched[ref]
+    else:
+        fs = _facts_cached(ref)
+        snapshot = None
+        try:
+            snapshot = build_snapshot(fs, budget_s=MARKET_BUDGET_SECONDS)
+        except Exception as exc:  # noqa: BLE001
+            fs.warnings.append(f"Marktdaten nicht verfuegbar ({type(exc).__name__})")
+
+        if ref not in _intents:
+            try:
+                notes = [str(get(n, "Note", "")) for n in (get(record, "ClientNotes") or [])]
+                _intents[ref] = extract_intents(notes) if notes else []
+            except Exception:  # noqa: BLE001 — Notizen sind ein Bonus, kein Muss
+                _intents[ref] = []
+
+        try:
+            fs = enrich_fact_sheet(fs, market=snapshot, intents=_intents[ref], client=record)
+        except Exception as exc:  # noqa: BLE001
+            fs.warnings.append(f"Anreicherung fehlgeschlagen ({type(exc).__name__})")
+        _enriched[ref] = fs
+    enrich_ms = int((time.perf_counter() - t_enrich) * 1000)
+
+    # --- Briefing. generate_briefing faellt intern auf ein Template zurueck,
+    #     deshalb liefert der Endpoint praktisch immer etwas. ---
+    t_llm = time.perf_counter()
     try:
-        briefing, issues = validate(generate_briefing(fs), fs)
+        briefing, mode = generate_briefing(fs)
+        briefing, issues = validate(briefing, fs)
     except LLMTimeout as exc:
-        raise HTTPException(
-            status_code=504,
-            detail=f"{exc} Die Befunde der Engine stehen "
-            "unten — sie stammen aus echten Daten und sind unabhängig vom Modell.",
-        ) from None
+        raise HTTPException(status_code=504, detail=f"{exc} Die Befunde der Engine stehen unten — "
+                            "sie stammen aus echten Daten und sind unabhaengig vom Modell.") from None
     except LLMAuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from None
     except LLMRateLimit as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from None
     except (LLMServerError, LLMBadRequest, LLMError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from None
+    except Exception as exc:  # noqa: BLE001 — nichts darf als Haenger beim Berater ankommen
+        raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from None
+    llm_ms = int((time.perf_counter() - t_llm) * 1000)
 
     _briefings[ref] = briefing
     result = BriefingResult(
@@ -145,7 +183,10 @@ def client_briefing(ref: str) -> dict[str, Any]:
         briefing=briefing,
         fact_sheet=fs,
         issues=issues,
-        generation_seconds=round(time.perf_counter() - t0, 2),
+        mode=mode,
+        display_name=record.get("_DisplayName", ref),
+        timings_ms={"enrich": enrich_ms, "llm": llm_ms, "total": enrich_ms + llm_ms},
+        generation_seconds=round((enrich_ms + llm_ms) / 1000, 2),
     )
     return result.model_dump(mode="json")
 
@@ -188,12 +229,16 @@ async def upload(file: UploadFile = File(...)) -> dict[str, Any]:
                 added.append(ref)
             _new_refs.add(ref)
             _facts.pop(ref, None)
+            _enriched.pop(ref, None)
+            _intents.pop(ref, None)
         reference_merged = False
     elif isinstance(payload, dict):
         for name, rows in payload.items():
             if isinstance(rows, list):
                 _reference.setdefault(name, []).extend(rows)
         _facts.clear()
+        _enriched.clear()
+        _intents.clear()
         reference_merged = True
     else:
         raise HTTPException(status_code=400, detail="Erwartet wird ein Array oder ein Objekt.")
@@ -216,6 +261,8 @@ def reset() -> dict[str, Any]:
     _clients = load_clients(DATA_DIR / "clients.json")
     _reference = load_reference(DATA_DIR / "reference.json")
     _facts.clear()
+    _enriched.clear()
+    _intents.clear()
     _new_refs.clear()
     return {"status": "ok", "clients": len(_clients)}
 
