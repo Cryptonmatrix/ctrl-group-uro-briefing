@@ -17,7 +17,14 @@ from uro.llm.prompts import render_fact_sheet
 from uro.models import Briefing, FactSheet, ValidationIssue
 
 NUMBER = re.compile(r"-?\d[\d'.,]*")
-MIN_WORDS, MAX_WORDS = 120, 240
+MIN_WORDS, MAX_WORDS = 120, 220  # Case: ~60s Lesezeit = 150-220; Prompt sagt dasselbe
+
+# Harte Obergrenzen. Sie koennen NICHT im JSON-Schema stehen: Pydantic macht aus
+# max_length ein maxItems, und das lehnt Structured Outputs ab. Der Prompt bittet
+# darum, hier wird es durchgesetzt.
+MAX_STATEMENTS_PER_SECTION = 3
+MAX_QUESTIONS = 2
+MAX_ACTIONS = 3
 SMALL_INT_CUTOFF = 12
 
 
@@ -169,14 +176,42 @@ def validate(
             )
         )
 
-    # 3. Word count check
-    words = briefing.word_count()
-    if words < MIN_WORDS or words > MAX_WORDS:
-        issues.append(
-            ValidationIssue(
-                kind="too_long" if words > MAX_WORDS else "too_short",
-                detail=f"{words} words (target {MIN_WORDS}-{MAX_WORDS})",
-            )
+    # 3. Laenge durchsetzen, nicht nur melden.
+    # Ein 60-Sekunden-Briefing, das 320 Woerter hat, ist kein 60-Sekunden-Briefing.
+    trimmed = []
+    for section in briefing.sections:
+        if len(section.statements) > MAX_STATEMENTS_PER_SECTION:
+            trimmed.append(f"{section.title}: {len(section.statements)} Aussagen")
+            section.statements = section.statements[:MAX_STATEMENTS_PER_SECTION]
+    if len(briefing.likely_questions) > MAX_QUESTIONS:
+        trimmed.append(f"{len(briefing.likely_questions)} Fragen")
+        briefing.likely_questions = briefing.likely_questions[:MAX_QUESTIONS]
+    if len(briefing.next_best_actions) > MAX_ACTIONS:
+        trimmed.append(f"{len(briefing.next_best_actions)} Aktionen")
+        briefing.next_best_actions = briefing.next_best_actions[:MAX_ACTIONS]
+    if trimmed:
+        issues.append(ValidationIssue(
+            kind="trimmed", detail="Ueber der Obergrenze gekuerzt: " + ", ".join(trimmed)))
+
+    # Immer noch zu lang? Die jeweils letzte Aussage je Abschnitt faellt weg —
+    # die Reihenfolge kommt aus dem Ranking, hinten steht das Unwichtigste.
+    while briefing.word_count() > MAX_WORDS:
+        longest = max(
+            (s for s in briefing.sections if len(s.statements) > 1),
+            key=lambda s: sum(len(st.text.split()) for st in s.statements),
+            default=None,
         )
+        if longest is None:
+            break
+        dropped = longest.statements.pop()
+        issues.append(ValidationIssue(
+            kind="too_long",
+            detail=f"Aussage entfernt, um unter {MAX_WORDS} Woerter zu kommen",
+            statement_text=dropped.text))
+
+    words = briefing.word_count()
+    if words < MIN_WORDS:
+        issues.append(ValidationIssue(
+            kind="too_short", detail=f"{words} words (target {MIN_WORDS}-{MAX_WORDS})"))
 
     return briefing, issues
