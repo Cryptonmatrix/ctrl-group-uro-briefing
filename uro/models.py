@@ -9,7 +9,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
 # Findings — das, was die Engine deterministisch berechnet
@@ -269,6 +269,8 @@ class StatementType(str, Enum):
 
 
 class Statement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     text: str
     type: StatementType
     finding_ids: list[str] = Field(
@@ -277,11 +279,15 @@ class Statement(BaseModel):
 
 
 class Section(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str
-    statements: list[Statement] = Field(max_length=3, description="Max 3 — 60-Sekunden-Regel")
+    statements: list[Statement] = Field(description="Max 3 — 60-Sekunden-Regel")
 
 
 class LikelyQuestion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     question: str
     answer_hint: str
 
@@ -300,6 +306,8 @@ class ActionKind(str, Enum):
 
 
 class NextBestAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     action: str = Field(description="Konkret und umsetzbar, mit Betrag oder Titel")
     rationale: str
     finding_ids: list[str]
@@ -310,13 +318,15 @@ class NextBestAction(BaseModel):
 class Briefing(BaseModel):
     """Die drei Abschnitte aus dem Case, plus die zwei Extras, die Punkte bringen."""
 
+    model_config = ConfigDict(extra="forbid")
+
     headline: str = Field(description="Ein Satz. Die Kernaussage des Gespraechs.")
     sections: list[Section] = Field(
         description="Genau 3: Recent Portfolio Development, Portfolio Health Check, "
         "Portfolio Outlook & Next Best Actions"
     )
-    likely_questions: list[LikelyQuestion] = Field(default_factory=list, max_length=2)
-    next_best_actions: list[NextBestAction] = Field(default_factory=list, max_length=3)
+    likely_questions: list[LikelyQuestion] = Field(default_factory=list)
+    next_best_actions: list[NextBestAction] = Field(default_factory=list)
 
     def word_count(self) -> int:
         parts = [self.headline]
@@ -324,6 +334,26 @@ class Briefing(BaseModel):
         parts += [q.question + " " + q.answer_hint for q in self.likely_questions]
         parts += [a.action + " " + a.rationale for a in self.next_best_actions]
         return sum(len(p.split()) for p in parts)
+
+    def model_post_init(self, context: object, /) -> None:
+        """Setzt die 60-Sekunden-Grenzen durch — bei jedem Weg, auf dem ein Briefing entsteht
+        (messages.parse, model_validate auf rohem JSON, Template-Fallback, Tests).
+
+        Die Grenzen dürfen NICHT als max_length im Schema stehen: Pydantic macht daraus maxItems,
+        und Structured Outputs lehnt das mit HTTP 400 ab (docs/blocker-models-schema.md).
+        Überzählige Einträge werden gekürzt; das Modell ordnet ohnehin nach Wichtigkeit.
+        """
+        for section in self.sections:
+            section.statements = section.statements[:MAX_STATEMENTS_PER_SECTION]
+        self.likely_questions = self.likely_questions[:MAX_LIKELY_QUESTIONS]
+        self.next_best_actions = self.next_best_actions[:MAX_NEXT_BEST_ACTIONS]
+
+
+# Die Längengrenzen des Briefings — hier statt im Schema (siehe Briefing.model_post_init).
+# Prompt und Validator können sie importieren, damit überall dieselben Zahlen gelten.
+MAX_STATEMENTS_PER_SECTION = 3
+MAX_LIKELY_QUESTIONS = 2
+MAX_NEXT_BEST_ACTIONS = 3
 
 
 class ValidationIssue(BaseModel):

@@ -1,5 +1,13 @@
 # Blocker auf `main`: `uro/models.py` erzeugt ein Schema, das die Anthropic-API ablehnt
 
+> **Status: behoben auf `main`** (Commit „CONTRACT CHANGE: Briefing-Schema Structured-Outputs-konform", 2026-09-19).
+> Schritte 1–3 zeilengleich wie auf `gianluca` (`f64985c`), damit der Merge konfliktfrei bleibt. Schritt 4 anders als
+> hier vorgeschlagen: Die Grenzen setzt `Briefing.model_post_init` durch statt des Validators — das greift bei jedem Weg,
+> auf dem ein Briefing entsteht, auch bei rohem JSON aus `messages.create`. Konstanten `MAX_STATEMENTS_PER_SECTION`,
+> `MAX_LIKELY_QUESTIONS`, `MAX_NEXT_BEST_ACTIONS` in `uro/models.py`. Regressionstest: `tests/test_briefing_schema.py`.
+> Offline verifiziert (Reproduktion aus §2 liefert `[]` und `False`); ein Live-Aufruf steht noch aus, weil auf dem Rechner
+> kein API-Schlüssel liegt.
+
 **Betrifft:** `uro/models.py` auf `origin/main`, Stand Commit `0398323`
 **Wirkung:** Jeder Briefing-Aufruf scheitert mit HTTP 400. Der LLM-Pfad ist auf `main` komplett tot.
 **Aufwand für den Fix:** unter fünf Minuten.
