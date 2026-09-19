@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     """Umgebungsvariablen (Präfix-frei), optional aus `.env` im Repo-Root."""
 
     anthropic_api_key: str | None = None
-    llm_model: str = "claude-opus-5"  # Latenz-Notfall: LLM_MODEL=claude-sonnet-5 (Plan D6)
+    llm_model: str = "claude-sonnet-5"  # Latenz-Notfall: LLM_MODEL=claude-sonnet-5 (Plan D6)
     llm_effort: str = "low"  # Opus 5 denkt sonst adaptiv — kostet Sekunden (CLAUDE.md §7)
     llm_timeout_s: float = 45.0
     llm_max_tokens: int = 4000  # reicht für ≤ 260 Wörter strukturiertes JSON
