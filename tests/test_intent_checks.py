@@ -34,6 +34,12 @@ def test_check_intents_liquidity_shortfall_case_012():
         )
     ]
 
+    # Die Engine rechnet denselben Bedarf bereits als liq-need — kein zweites Finding daneben.
+    assert any(f.id == "liq-need" for f in fs12.findings)
+    assert check_intents(intents, fs12, ref) == []
+
+    # Ohne liq-need (Betrag nur im extrahierten Intent erkannt) greift die Intent-Prüfung.
+    fs12.findings = [f for f in fs12.findings if f.id != "liq-need"]
     findings = check_intents(intents, fs12, ref)
     assert len(findings) == 1
     f = findings[0]
@@ -62,6 +68,7 @@ def test_check_intents_liquidity_covered_case_016():
         )
     ]
 
+    fs16.findings = [f for f in fs16.findings if f.id != "liq-need"]
     findings = check_intents(intents, fs16, ref)
     assert len(findings) == 1
     f = findings[0]
@@ -147,6 +154,23 @@ def test_check_intents_exclusion_threshold_rule():
     # Low exposure (1.2% < 2.0%) -> ignored (immaterial per CLAUDE.md)
     findings_low = check_intents(intents, fs_low)
     assert len(findings_low) == 0
+
+
+def test_tobacco_and_weapons_exclusion_never_flags_whole_sectors():
+    """CASE-003 hält 73.4 % Lindt (Consumer Staples) — das ist kein Tabak."""
+    clients = load_clients("data/clients.json")
+    fs3 = build_fact_sheet(
+        next(c for c in clients if c["ClientRef"] == "CASE-003"), load_reference("data/reference.json")
+    )
+    intents = [
+        ClientIntent(
+            kind="exclusion",
+            subject="weapons and tobacco",
+            detail="No investments in weapons or tobacco.",
+            source_note="No investments in weapons or tobacco.",
+        )
+    ]
+    assert check_intents(intents, fs3) == []
 
 
 def test_enrich_fact_sheet_orchestration():
