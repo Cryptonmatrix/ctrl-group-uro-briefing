@@ -12,11 +12,27 @@ kommt in Auftrag A3 als gekennzeichnete Näherung über yfinance-Kurse.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date
 
-from uro.analytics.format import date_str, num, pct
-from uro.config import PERF_NEGATIVE_3M, PERF_POSITIVE_3M
-from uro.models import Finding, FindingType, PerformancePoint, Severity
+from uro.analytics.format import date_str, num, pct, pp, round_chf, truncate
+from uro.analytics.positions import is_cash
+from uro.config import (
+    DRIVER_MIN_CONTRIBUTION_PP,
+    DRIVER_TOP_N,
+    PERF_NEGATIVE_3M,
+    PERF_POSITIVE_3M,
+    PRICE_COVERAGE_WARN,
+)
+from uro.models import (
+    FactSheet,
+    Finding,
+    FindingType,
+    MarketSnapshot,
+    PerformancePoint,
+    PositionFact,
+    Severity,
+)
 
 SOURCE = "clients.json › Portfolios[].PerformanceHistory"
 MATERIAL_CHANGE_SINCE_CONTACT_PCT = 3.0  # Spec §5.16: Bewegung seit letztem Kontakt > 3 % → Boost ×1.1
@@ -133,3 +149,116 @@ def performance_findings(
             source=SOURCE,
         )
     ]
+
+
+def _weight(p: PositionFact) -> float:
+    return p.client_weight_pct if p.client_weight_pct is not None else p.weight_pct
+
+
+def driver_findings(fs: FactSheet, market: MarketSnapshot | None) -> list[Finding]:
+    """Berechnet Positions-Treiber (drv-*) und Kursabdeckung (gap-prices) aus einem MarketSnapshot."""
+    if market is None or not market.prices or not fs.portfolios:
+        return []
+
+    positions = [p for pf in fs.portfolios for p in pf.positions]
+    securities = [p for p in positions if not is_cash(p)]
+    if not securities:
+        return []
+
+    # Aggregation je security_id über Portfolios hinweg
+    agg: dict[int, dict] = defaultdict(lambda: {"weight": 0.0, "amount": 0.0, "name": "", "pos": None})
+    for p in securities:
+        a = agg[p.security_id]
+        a["weight"] += _weight(p)
+        a["amount"] += p.amount_chf
+        a["name"] = a["name"] or p.name
+        if a["pos"] is None:
+            a["pos"] = p
+
+    total_invested = sum(a["amount"] for a in agg.values())
+    uncovered_amount = 0.0
+    priced_drivers: list[tuple[int, dict, float, float, float]] = []
+
+    for sid, a in agg.items():
+        ticker = market.tickers.get(sid)
+        ps = market.prices.get(ticker) if ticker else None
+        r = ps.return_pct() if ps else None
+        if r is not None:
+            w = a["weight"]
+            c = num(w * r / 100)
+            priced_drivers.append((sid, a, w, r, c))
+        else:
+            uncovered_amount += a["amount"]
+
+    candidates = [item for item in priced_drivers if abs(item[4]) >= DRIVER_MIN_CONTRIBUTION_PP]
+    negatives = sorted([item for item in candidates if item[4] < 0], key=lambda x: x[4])[:DRIVER_TOP_N]
+    positives = sorted([item for item in candidates if item[4] > 0], key=lambda x: -x[4])[:DRIVER_TOP_N]
+
+    out: list[Finding] = []
+    d = date_str(market.as_of)
+    driver_source = "yfinance 3-month closes × clients.json positions"
+
+    for sid, a, w, r, c in negatives:
+        name = truncate(a["name"], 60)
+        weight_val = num(w)
+        ret_val = num(r)
+        contrib_val = num(c)
+        out.append(
+            Finding(
+                id=f"drv-{sid}",
+                type=FindingType.PERFORMANCE_DRIVER,
+                severity=Severity.WARNING,
+                title=f"{name}: ≈ {pp(contrib_val)} contribution over the last 3 months",
+                detail=(
+                    f"{name} ({pct(weight_val)} of client assets) {pct(ret_val, signed=True)} "
+                    f"over the last 3 months (market data as of {d}). "
+                    "Approximation: current weight × price change, flows not included."
+                ),
+                numbers={"weight_pct": weight_val, "return_3m_pct": ret_val, "contribution_pp": contrib_val},
+                materiality_chf=round_chf(a["amount"]),
+                security_ids=[sid],
+                source=driver_source,
+            )
+        )
+
+    for sid, a, w, r, c in positives:
+        name = truncate(a["name"], 60)
+        weight_val = num(w)
+        ret_val = num(r)
+        contrib_val = num(c)
+        out.append(
+            Finding(
+                id=f"drv-{sid}",
+                type=FindingType.PERFORMANCE_DRIVER,
+                severity=Severity.OPPORTUNITY,
+                title=f"{name}: ≈ {pp(contrib_val)} contribution over the last 3 months",
+                detail=(
+                    f"{name} ({pct(weight_val)} of client assets) {pct(ret_val, signed=True)} "
+                    f"over the last 3 months (market data as of {d}). "
+                    "Approximation: current weight × price change, flows not included."
+                ),
+                numbers={"weight_pct": weight_val, "return_3m_pct": ret_val, "contribution_pp": contrib_val},
+                materiality_chf=round_chf(a["amount"]),
+                security_ids=[sid],
+                source=driver_source,
+            )
+        )
+
+    if total_invested > 0:
+        u = num((uncovered_amount / total_invested) * 100)
+        if u > num(PRICE_COVERAGE_WARN * 100):
+            covered = num(100.0 - u)
+            out.append(
+                Finding(
+                    id="gap-prices",
+                    type=FindingType.DATA_GAP,
+                    severity=Severity.INFO,
+                    title=f"Price history unavailable for {pct(u)} of invested assets",
+                    detail=f"Driver analysis covers {pct(covered)} of invested assets (holdings with a resolvable ticker and price history).",
+                    numbers={"uncovered_pct": u, "covered_pct": covered},
+                    materiality_chf=round_chf(uncovered_amount),
+                    source=driver_source,
+                )
+            )
+
+    return out

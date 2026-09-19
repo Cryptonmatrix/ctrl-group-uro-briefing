@@ -205,6 +205,7 @@ SEVERITY_WEIGHT: dict[tuple[str, str], float] = {
     ("risk_profile", "warning"): 0.75,
     ("performance", "warning"): 0.70,
     ("performance_driver", "warning"): 0.70,
+    ("performance_driver", "opportunity"): 0.40,
     ("concentration", "error"): 0.75,
     ("concentration", "warning"): 0.70,
     ("preference_conflict", "warning"): 0.70,
