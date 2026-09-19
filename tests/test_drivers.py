@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 from uro.analytics.format import num, pct, pp
+from uro.analytics.market_comparison import market_comparison_findings, proxy_tickers
 from uro.analytics.performance import driver_findings
 from uro.models import FindingType, MarketSnapshot, PriceSeries, Severity
 
@@ -129,3 +132,87 @@ def test_gap_prices_coverage(fact_sheets):
     )
     findings_all = driver_findings(fs, snap_all)
     assert not any(f.id == "gap-prices" for f in findings_all)
+
+
+@pytest.mark.parametrize(
+    ("pos_ret", "sector_ret", "market_ret", "expected_label"),
+    [
+        (-12.0, -8.0, -1.0, "sector-wide"),
+        (-10.0, -2.0, -6.0, "market-wide"),
+        (-20.0, -2.0, -1.0, "stock-specific"),
+        (-8.0, -4.0, -2.0, "mixed"),
+    ],
+)
+def test_market_comparison_classification(fact_sheets, pos_ret, sector_ret, market_ret, expected_label):
+    fs = fact_sheets["CASE-A01"]
+    # Lindt is 101, CHF, Consumer Staples
+    snap = MarketSnapshot(
+        source="live",
+        as_of=datetime(2026, 9, 19),
+        tickers={101: "LISN.SW"},
+        prices={
+            "LISN.SW": PriceSeries(ticker="LISN.SW", closes=[100.0, 100.0 * (1.0 + pos_ret / 100)]),
+            "XLP": PriceSeries(ticker="XLP", closes=[100.0, 100.0 * (1.0 + sector_ret / 100)]),
+            "^SSMI": PriceSeries(ticker="^SSMI", closes=[100.0, 100.0 * (1.0 + market_ret / 100)]),
+        },
+    )
+    drivers = driver_findings(fs, snap)
+    assert any(f.id == "drv-101" for f in drivers)
+
+    sector_proxies = {"Consumer Staples": "XLP"}
+    comps = market_comparison_findings(fs, snap, drivers, sector_proxies)
+    assert len(comps) == 1
+    mkt = comps[0]
+    assert mkt.id == "mkt-101"
+    assert f"decline is {expected_label}" in mkt.title
+    assert mkt.security_ids == [101]
+
+
+def test_market_comparison_negative_only_and_related_ids(fact_sheets):
+    fs = fact_sheets["CASE-A01"]
+    sector_proxies = {"Consumer Staples": "XLP"}
+
+    # 1. Negative driver -> creates mkt-101 and sets related_ids in both directions
+    snap_neg = MarketSnapshot(
+        source="live",
+        as_of=datetime(2026, 9, 19),
+        tickers={101: "LISN.SW"},
+        prices={
+            "LISN.SW": PriceSeries(ticker="LISN.SW", closes=[100.0, 90.0]),  # -10%
+            "XLP": PriceSeries(ticker="XLP", closes=[100.0, 92.0]),  # -8%
+            "^SSMI": PriceSeries(ticker="^SSMI", closes=[100.0, 99.0]),  # -1%
+        },
+    )
+    drivers_neg = driver_findings(fs, snap_neg)
+    drv_neg = next(f for f in drivers_neg if f.id == "drv-101")
+    comps_neg = market_comparison_findings(fs, snap_neg, drivers_neg, sector_proxies)
+    assert len(comps_neg) == 1
+    mkt = comps_neg[0]
+    assert mkt.id == "mkt-101"
+    assert mkt.security_ids == [101]
+    assert mkt.related_ids == ["drv-101"]
+    assert "mkt-101" in drv_neg.related_ids
+
+    # 2. Positive driver -> no mkt finding
+    snap_pos = MarketSnapshot(
+        source="live",
+        as_of=datetime(2026, 9, 19),
+        tickers={101: "LISN.SW"},
+        prices={
+            "LISN.SW": PriceSeries(ticker="LISN.SW", closes=[100.0, 110.0]),  # +10%
+            "XLP": PriceSeries(ticker="XLP", closes=[100.0, 105.0]),
+            "^SSMI": PriceSeries(ticker="^SSMI", closes=[100.0, 102.0]),
+        },
+    )
+    drivers_pos = driver_findings(fs, snap_pos)
+    comps_pos = market_comparison_findings(fs, snap_pos, drivers_pos, sector_proxies)
+    assert comps_pos == []
+
+
+def test_proxy_tickers(fact_sheets):
+    fs = fact_sheets["CASE-A01"]
+    # CASE-A01 has Lindt (101): currency CHF, industry "Consumer Staples"
+    tickers = {101: "LISN.SW"}
+    sector_proxies = {"Consumer Staples": "XLP", "Information Technology": "XLK"}
+    pt = proxy_tickers(fs, tickers, sector_proxies)
+    assert set(pt) == {"^SSMI", "XLP"}
